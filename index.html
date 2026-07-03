@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>dothething</title>
+    <script>
+      (function() {
+        try {
+          const theme = localStorage.getItem('theme') || 'light';
+          const autoMode = localStorage.getItem('autoMode') || 'time';
+          let resolved = 'light';
+          if (theme === 'dark') {
+            resolved = 'dark';
+          } else if (theme === 'auto') {
+            if (autoMode === 'system') {
+              resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            } else {
+              const lightStart = parseInt(localStorage.getItem('lightStartHour') || '6', 10);
+              const darkStart = parseInt(localStorage.getItem('darkStartHour') || '18', 10);
+              const hour = new Date().getHours();
+              if (lightStart < darkStart) {
+                resolved = (hour >= lightStart && hour < darkStart) ? 'light' : 'dark';
+              } else {
+                resolved = (hour >= lightStart || hour < darkStart) ? 'light' : 'dark';
+              }
+            }
+          }
+          if (resolved === 'dark') {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

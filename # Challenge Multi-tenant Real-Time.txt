@@ -1,0 +1,325 @@
+# Challenge: Multi-tenant Real-Time Project Operations Platform
+
+Think of it as a mix of Jira + Slack + GitHub + analytics.
+
+You build it once:
+
+1. React + Node.js + MongoDB
+2. React + Go + MongoDB
+3. React + ASP.NET + MongoDB (or SQL if you want an extra challenge)
+
+This lets you compare backend design, concurrency, authentication, and scaling approaches.
+## Core features
+
+### 1. Multi-tenant organization system
+
+Users can:
+
+* Create organizations
+* Invite members
+* Join teams
+* Assign roles
+
+Roles:
+
+* Owner
+* Admin
+* Project manager
+* Developer
+* Viewer
+
+Backend tasks:
+
+* RBAC authorization
+* Organization isolation
+* Permission middleware
+* Invitation tokens
+* Audit logs
+
+Frontend tasks:
+
+* Dynamic navigation based on role
+* Protected routes
+* Permission-based UI rendering
+
+---
+
+### 2. Advanced Kanban board
+
+Features:
+
+* Drag-and-drop cards
+* Nested subtasks
+* Dependencies between tasks
+* Labels
+* Priority
+* Due dates
+* Attachments
+
+Backend:
+
+* Transaction consistency
+* Efficient task ordering
+* Pagination
+* Filtering
+* Search indexes
+
+Frontend:
+
+* Virtualized large lists
+* Optimistic updates
+* Undo action
+
+---
+
+### 3. Real-time collaboration
+
+Features:
+
+* Live typing indicators
+* Presence ("John is online")
+* Real-time task updates
+* Collaborative editing
+
+Backend:
+
+* WebSockets
+* Event broadcasting
+* Connection management
+* Retry handling
+
+Frontend:
+
+* Socket reconnect handling
+* State synchronization
+* Conflict resolution
+
+---
+
+### 4. Notification engine
+
+Notifications:
+
+* Mention user
+* Assigned task
+* Deadline reminder
+* Team announcements
+
+Channels:
+
+* In-app
+* Email
+* Push notifications
+
+Backend:
+
+* Background workers
+* Queues
+* Scheduled jobs
+* Retry policies
+
+Frontend:
+
+* Notification center
+* Read/unread states
+* Infinite scrolling
+
+---
+
+### 5. Activity timeline
+
+Example:
+
+> Raj moved task A from Review → Done
+
+Store:
+
+* Who
+* What
+* Timestamp
+* Metadata
+
+Backend:
+
+* Event system
+* Aggregation pipeline
+* Audit trail architecture
+
+Frontend:
+
+* Timeline UI
+* Filters
+* Infinite feed
+
+---
+
+### 6. Analytics dashboard
+
+Metrics:
+
+* Tasks completed/day
+* Team productivity
+* Time estimates vs actual
+* Burndown charts
+
+Backend:
+
+* Aggregation queries
+* Cached analytics
+* Pre-computed reports
+
+Frontend:
+
+* Interactive charts
+* Date range filters
+* Export CSV/PDF
+
+---
+
+### 7. Search system
+
+Search:
+
+* Tasks
+* Users
+* Comments
+* Projects
+
+Advanced filters:
+
+* Status
+* Assignee
+* Date range
+* Labels
+
+Backend:
+
+* Full-text search
+* Ranking
+* Query optimization
+
+Frontend:
+
+* Debounced search
+* Filter builder
+* Saved searches
+
+---
+
+### 8. File management
+
+Features:
+
+* Upload files
+* Preview images
+* Attach to tasks
+
+Backend:
+
+* Storage abstraction
+* Signed URLs
+* Validation
+* Compression
+
+Frontend:
+
+* Drag-drop upload
+* Progress bars
+* Preview components
+
+---
+
+### 9. Offline mode
+
+Features:
+
+* Local cache
+* Pending actions queue
+* Sync when online
+
+Frontend challenge level: high
+
+You’ll work with:
+
+* IndexedDB
+* Sync logic
+* Conflict handling
+
+---
+
+### 10. Admin/observability panel
+
+Admin features:
+
+* User management
+* Logs
+* System metrics
+* Failed jobs
+* Queue status
+
+Backend:
+
+* Health checks
+* Metrics collection
+* Structured logging
+
+Frontend:
+
+* Monitoring dashboards
+
+## Suggested architecture
+
+Frontend:
+
+* React
+* TypeScript
+* Redux Toolkit or Zustand
+* React Query
+
+Node version:
+
+* Node.js
+* Express.js
+* Redis
+* WebSockets
+* Background jobs
+
+Go version:
+
+* Go
+* Gin
+* Goroutines
+* Worker pools
+
+ASP.NET version:
+
+* ASP.NET
+* Background services
+* SignalR
+
+---
+
+## Extra difficulty mode (senior-level)
+
+Add:
+
+* Distributed rate limiting
+* API versioning
+* Event-driven architecture
+* CQRS
+* Event sourcing
+* Distributed tracing
+* Feature flags
+* Docker deployment
+* CI/CD
+* Tests (>80% coverage)
+
+---
+
+This is large enough that you'll notice meaningful differences:
+
+* Node → ecosystem speed
+* Go → concurrency patterns
+* ASP.NET → enterprise structure
+
+And your React skills get exercised heavily instead of becoming “just build forms and tables.”
