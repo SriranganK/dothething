@@ -1,368 +1,584 @@
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { User, Mail, Lock, Briefcase, Building2, MapPin, ArrowRight, ArrowLeft, ShieldAlert } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
+import {
+    User, Mail, Lock, Briefcase, Building2, Phone,
+    ArrowRight, ArrowLeft, Eye, EyeOff, Check, Users,
+    Sparkles, Shield, Zap, Globe, ChevronRight
+} from "lucide-react";
+
+
+interface UserInfo {
+    name: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    designation: string;
+    company: string;
+    department: string;
+    phone: string;
+}
+
+interface WorkspaceInfo {
+    name: string;
+    type: string;
+    teamSize: string;
+    industry: string;
+    invitedMembers: string;
+}
+
+interface ValidationErrors { [key: string]: string; }
+
+
+function getPasswordStrength(pwd: string) {
+    if (!pwd) return { score: 0, label: "", color: "", criteria: { hasMinLength: false, hasUppercase: false, hasLowercase: false, hasNumber: false, hasSpecial: false } };
+    const criteria = {
+        hasMinLength: pwd.length >= 8,
+        hasUppercase: /[A-Z]/.test(pwd),
+        hasLowercase: /[a-z]/.test(pwd),
+        hasNumber: /[0-9]/.test(pwd),
+        hasSpecial: /[^A-Za-z0-9]/.test(pwd),
+    };
+    const score = Object.values(criteria).filter(Boolean).length;
+    const label = score === 5 ? "Strong" : score >= 3 ? "Fair" : "Weak";
+    const color = score === 5 ? "#22c55e" : score >= 3 ? "#f59e0b" : "#ef4444";
+    return { score, label, color, criteria };
+}
+
+
+function AnimatedStep({ children, stepKey, direction }: { children: React.ReactNode; stepKey: string | number; direction: "forward" | "backward" }) {
+    const [visible, setVisible] = useState(false);
+    useEffect(() => {
+        const frame = requestAnimationFrame(() => setVisible(true));
+        return () => { cancelAnimationFrame(frame); };
+    }, [stepKey]);
+    const tx = direction === "forward" ? "translateX(28px)" : "translateX(-28px)";
+    return (
+        <div style={{ opacity: visible ? 1 : 0, transform: visible ? "translateX(0)" : tx, transition: "opacity 0.32s cubic-bezier(.4,0,.2,1), transform 0.32s cubic-bezier(.4,0,.2,1)" }}>
+            {children}
+        </div>
+    );
+}
+
+
+function FieldInput({ id, label, type = "text", placeholder, value, onChange, icon: Icon, error, autoFocus = false, suffix, onKeyDown }: {
+    id: string; label: string; type?: string; placeholder?: string; value: string;
+    onChange: (v: string) => void; icon?: React.ElementType; error?: string;
+    autoFocus?: boolean; suffix?: React.ReactNode; onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}) {
+    const [focused, setFocused] = useState(false);
+    const isValid = value.length > 0 && !error;
+    return (
+        <div style={{ marginBottom: 0 }}>
+            <label htmlFor={id} style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 6 }}>{label}</label>
+            <div style={{ position: "relative" }}>
+                {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-[15px] w-[15px] pointer-events-none" style={{ color: focused ? "var(--color-primary)" : "oklch(0.6 0 0)", transition: "color 0.2s" }} />}
+                <input
+                    id={id} type={type} placeholder={placeholder} value={value} autoFocus={autoFocus} autoComplete="off"
+                    onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+                    onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown}
+                    style={{
+                        height: 48, width: "100%", paddingLeft: Icon ? 44 : 16, paddingRight: suffix ? 44 : isValid ? 44 : 16,
+                        borderRadius: 14, fontSize: 14, fontWeight: 500, boxSizing: "border-box",
+                        border: `1.5px solid ${error ? "#ef4444" : focused ? "var(--color-primary)" : "var(--color-border)"}`,
+                        background: "var(--color-background)", outline: "none", color: "var(--color-foreground)",
+                        boxShadow: focused ? `0 0 0 3px ${error ? "rgba(239,68,68,0.1)" : "oklch(0.511 0.262 276.966 / 10%)"}` : "none",
+                        transition: "border-color 0.2s, box-shadow 0.2s",
+                    }}
+                />
+                {suffix && <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{suffix}</div>}
+                {isValid && !suffix && (
+                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full" style={{ background: "#22c55e" }}>
+                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                    </div>
+                )}
+            </div>
+            {error && <p style={{ fontSize: 12, fontWeight: 500, color: "#ef4444", marginTop: 5, paddingLeft: 2 }}>{error}</p>}
+        </div>
+    );
+}
+
+
+
+function SelectionCard({ selected, onClick, icon: IconComponent, title, desc }: {
+    selected: boolean; onClick: () => void; icon: any; title: string; desc?: string;
+}) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button type="button" onClick={onClick}
+            onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            style={{
+                width: "100%", padding: "14px 18px", borderRadius: 14, cursor: "pointer", textAlign: "left",
+                display: "flex", alignItems: "center", gap: 14,
+                border: `2px solid ${selected ? "var(--color-primary)" : hovered ? "oklch(0.7 0 0)" : "var(--color-border)"}`,
+                background: selected ? "oklch(0.511 0.262 276.966 / 6%)" : "var(--color-background)",
+                boxShadow: selected ? "0 0 0 4px oklch(0.511 0.262 276.966 / 8%)" : "none",
+                transform: selected ? "scale(1.01)" : "scale(1)",
+                transition: "all 0.2s",
+            }}
+        >
+            <div style={{ width: 38, height: 38, borderRadius: 10, background: selected ? "oklch(0.511 0.262 276.966 / 12%)" : "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
+                <IconComponent className="h-5 w-5" style={{ color: selected ? "var(--color-primary)" : "oklch(0.55 0 0)" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: selected ? "var(--color-primary)" : "var(--color-foreground)", margin: 0 }}>{title}</p>
+                {desc && <p style={{ fontSize: 12, color: "oklch(0.6 0 0)", margin: "2px 0 0" }}>{desc}</p>}
+            </div>
+            <div style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${selected ? "var(--color-primary)" : "var(--color-border)"}`, background: selected ? "var(--color-primary)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            </div>
+        </button>
+    );
+}
+
+
+function ContinueButton({ onClick, loading = false, label = "Continue", disabled = false }: { onClick: () => void; loading?: boolean; label?: string; disabled?: boolean }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button type="button" onClick={onClick} disabled={loading || disabled}
+            onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            style={{
+                width: "100%", height: 52, borderRadius: 14, border: "none",
+                background: loading || disabled ? "oklch(0.8 0 0)" : "var(--color-primary)",
+                color: "#fff", fontSize: 15, fontWeight: 700, cursor: loading || disabled ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8, letterSpacing: "0.01em",
+                boxShadow: loading || disabled ? "none" : hovered ? "0 6px 24px oklch(0.511 0.262 276.966 / 40%)" : "0 4px 16px oklch(0.511 0.262 276.966 / 28%)",
+                transform: hovered && !loading && !disabled ? "translateY(-1px)" : "translateY(0)",
+                transition: "background 0.2s, transform 0.15s, box-shadow 0.2s",
+            }}
+        >
+            {loading ? (
+                <>
+                    <span style={{ width: 16, height: 16, border: "2.5px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "reg-spin 0.7s linear infinite" }} />
+                    {label}
+                </>
+            ) : (
+                <>{label}<ArrowRight className="h-4 w-4" strokeWidth={2.5} /></>
+            )}
+        </button>
+    );
+}
+
+
+function SkipButton({ onClick }: { onClick: () => void }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button type="button" onClick={onClick}
+            onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            style={{ width: "100%", height: 40, border: "none", background: "transparent", color: hovered ? "var(--color-foreground)" : "oklch(0.58 0 0)", fontSize: 13, fontWeight: 500, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, transition: "color 0.15s" }}
+        >
+            Skip for now <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+    );
+}
+
+// â”€â”€â”€ TipCard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function TipCard({ icon: Icon, text }: { icon: React.ElementType; text: string }) {
+    return (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 12, background: "oklch(0.511 0.262 276.966 / 5%)", border: "1px solid oklch(0.511 0.262 276.966 / 15%)" }}>
+            <Icon className="h-4 w-4 mt-0.5 shrink-0" style={{ color: "var(--color-primary)" }} />
+            <p style={{ fontSize: 12, lineHeight: 1.55, color: "oklch(0.52 0 0)", margin: 0 }}>{text}</p>
+        </div>
+    );
+}
+
+// â”€â”€â”€ BackButton â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+function BackButton({ onClick }: { onClick: () => void }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+        <button type="button" onClick={onClick}
+            onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, color: hovered ? "var(--color-foreground)" : "oklch(0.55 0 0)", fontSize: 13, fontWeight: 500, padding: "0 0 20px", transition: "color 0.15s" }}
+        >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+        </button>
+    );
+}
+
+
+const PROFILE_STEPS = ["designation", "company", "department", "phone"] as const;
+const WORKSPACE_STEPS = ["workspaceName", "workspaceType", "workspaceTeamSize", "workspaceIndustry", "workspaceInviteMembers"] as const;
+
+const WORKSPACE_TYPES = [
+    { id: "Personal", title: "Personal", desc: "A private space just for you", icon: User },
+    { id: "Team", title: "Team", desc: "Collaborate with a small group", icon: Users },
+    { id: "Company", title: "Company", desc: "Organisation-wide workspace", icon: Building2 },
+];
+
+const TEAM_SIZES = [
+    { id: "Just me", label: "Just me", icon: User },
+    { id: "2–10", label: "2–10 people", icon: Users },
+    { id: "11–50", label: "11–50 people", icon: Building2 },
+    { id: "50+", label: "50+ people", icon: Building2 },
+];
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export default function Register() {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1);
-    const [error, setError] = useState("");
+    const { login } = useAuth();
+
+    const [phase, setPhase] = useState<"account" | "profile" | "workspace" | "done">("account");
+    const [profileStep, setProfileStep] = useState(0);
+    const [workspaceStep, setWorkspaceStep] = useState(0);
+    const [direction, setDirection] = useState<"forward" | "backward">("forward");
+    const [isInvited, setIsInvited] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [globalError, setGlobalError] = useState("");
 
-    // Form inputs state
-    const [userInfo, setUserInfo] = useState({
-        name: "",
-        email: "",
-        password: "",
-        confirmPassword: "",
-        designation: "",
-        company: "",
-        department: "",
-        location: "",
-        timezone: "GMT+5:30 (IST)"
-    });
+    const [userInfo, setUserInfo] = useState<UserInfo>({ name: "", email: "", password: "", confirmPassword: "", designation: "", company: "", department: "", phone: "" });
+    const [workspaceInfo, setWorkspaceInfo] = useState<WorkspaceInfo>({ name: "", type: "Personal", teamSize: "Just me", industry: "", invitedMembers: "" });
 
-    useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (token) {
-            navigate("/");
-        }
-    }, [navigate]);
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [errors, setErrors] = useState<ValidationErrors>({});
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>, fieldName: string) => {
-        const { value } = e.target;
-        setUserInfo((prev) => ({
-            ...prev,
-            [fieldName]: value
-        }));
+    const pwStrength = getPasswordStrength(userInfo.password);
+
+    useEffect(() => { if (localStorage.getItem("token")) navigate("/"); }, [navigate]);
+
+    const setField = useCallback((field: keyof UserInfo, value: string) => {
+        setUserInfo(prev => ({ ...prev, [field]: value }));
+        setErrors(prev => ({ ...prev, [field]: "" }));
+    }, []);
+
+    const setWsField = useCallback((field: keyof WorkspaceInfo, value: string) => {
+        setWorkspaceInfo(prev => ({ ...prev, [field]: value }));
+        setErrors(prev => ({ ...prev, [field]: "" }));
+    }, []);
+
+    const fw = () => setDirection("forward");
+    const bk = () => setDirection("backward");
+
+    // Validation
+    const validateAccount = () => {
+        const e: ValidationErrors = {};
+        if (!userInfo.name.trim()) e.name = "What should we call you?";
+        if (!userInfo.email.includes("@")) e.email = "Enter a valid email address.";
+        if (pwStrength.score < 5) e.password = "Use 8+ chars with uppercase, number & symbol.";
+        if (userInfo.password !== userInfo.confirmPassword) e.confirmPassword = "Passwords don't match.";
+        setErrors(e);
+        return Object.keys(e).length === 0;
     };
 
-    const handleSelectChange = (value: string, fieldName: string) => {
-        setUserInfo((prev) => ({
-            ...prev,
-            [fieldName]: value
-        }));
-    };
-
-    const validateStep1 = () => {
-        setError("");
-        if (!userInfo.name.trim()) {
-            setError("Please enter your full name.");
-            return false;
-        }
-        if (!userInfo.email.trim() || !userInfo.email.includes("@")) {
-            setError("Please enter a valid email address.");
-            return false;
-        }
-        if (userInfo.password.length < 6) {
-            setError("Password must be at least 6 characters long.");
-            return false;
-        }
-        if (userInfo.password !== userInfo.confirmPassword) {
-            setError("Passwords do not match.");
-            return false;
-        }
-        return true;
-    };
-
-    const handleNext = (e: React.MouseEvent) => {
-        e.preventDefault();
-        if (validateStep1()) {
-            setStep(2);
-        }
-    };
-
-    const handleRegister = async (e: React.MouseEvent<HTMLButtonElement>) => {
-        e.preventDefault();
-        setError("");
+    // Navigation
+    const handleAccountNext = async () => {
+        if (!validateAccount()) return;
         setLoading(true);
-
+        setGlobalError("");
         try {
-            const response = await fetch("http://localhost:5000/api/auth/register", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    name: userInfo.name.trim(),
-                    email: userInfo.email.trim().toLowerCase(),
-                    password: userInfo.password,
-                    designation: userInfo.designation.trim(),
-                    company: userInfo.company.trim(),
-                    department: userInfo.department.trim(),
-                    location: userInfo.location.trim(),
-                    timezone: userInfo.timezone
-                }),
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || "Registration failed");
-            }
-
-            localStorage.setItem("token", data.token);
-            localStorage.setItem("user", JSON.stringify(data.user));
-            navigate("/");
-        } catch (err: any) {
-            setError(err.message || "An error occurred");
-        } finally {
-            setLoading(false);
-        }
+            const res = await fetch(`http://localhost:5000/api/auth/check-invitation?email=${encodeURIComponent(userInfo.email.trim())}`);
+            const data = await res.json();
+            setIsInvited(res.ok ? data.hasInvitation : false);
+        } catch { setIsInvited(false); }
+        setLoading(false);
+        fw(); setPhase("profile"); setProfileStep(0);
     };
+
+    const handleProfileNext = () => {
+        fw();
+        if (profileStep < PROFILE_STEPS.length - 1) { setProfileStep(p => p + 1); }
+        else { isInvited ? handleRegister() : (setPhase("workspace"), setWorkspaceStep(0)); }
+    };
+
+    const handleProfileBack = () => {
+        bk();
+        if (profileStep > 0) setProfileStep(p => p - 1);
+        else setPhase("account");
+    };
+
+    const handleWorkspaceNext = () => {
+        const sn = WORKSPACE_STEPS[workspaceStep];
+        if (sn === "workspaceName" && !workspaceInfo.name.trim()) { setErrors({ workspaceName: "Your workspace needs a name." }); return; }
+        if (sn === "workspaceIndustry" && !workspaceInfo.industry.trim()) { setErrors({ workspaceIndustry: "Tell us your industry." }); return; }
+        fw();
+        if (workspaceStep < WORKSPACE_STEPS.length - 1) setWorkspaceStep(p => p + 1);
+        else handleRegister();
+    };
+
+    const handleWorkspaceBack = () => {
+        bk();
+        if (workspaceStep > 0) setWorkspaceStep(p => p - 1);
+        else { setPhase("profile"); setProfileStep(PROFILE_STEPS.length - 1); }
+    };
+
+    const handleRegister = async () => {
+        setLoading(true); setGlobalError("");
+        try {
+            const res = await fetch("http://localhost:5000/api/auth/register", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: userInfo.name.trim(), email: userInfo.email.trim().toLowerCase(), password: userInfo.password, designation: userInfo.designation.trim(), company: userInfo.company.trim(), department: userInfo.department.trim(), phone: userInfo.phone.trim(), location: "", timezone: "GMT+5:30 (IST)" }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "Registration failed");
+            login(data.token, data.user);
+            if (!isInvited) {
+                const emails = workspaceInfo.invitedMembers.split(/[\s,;]+/).map(e => e.trim()).filter(e => e.includes("@"));
+                const wsRes = await fetch("http://localhost:5000/api/workspaces", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.token}` }, body: JSON.stringify({ name: workspaceInfo.name.trim(), type: workspaceInfo.type, teamSize: workspaceInfo.teamSize, industry: workspaceInfo.industry.trim(), members: emails }) });
+                const wsData = await wsRes.json();
+                if (!wsRes.ok) throw new Error(wsData.message || "Workspace creation failed");
+            }
+            setPhase("done");
+            setTimeout(() => navigate("/"), 1600);
+        } catch (err: any) {
+            setGlobalError(err.message || "Something went wrong. Please try again.");
+            if (phase === "profile" || (phase === "workspace" && workspaceStep === WORKSPACE_STEPS.length - 1)) setPhase("workspace");
+        } finally { setLoading(false); }
+    };
+
+    const kEnter = (cb: () => void) => (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === "Enter") cb(); };
+
+    // Styles helpers
+    const phaseLabel = (label: string, cur: number, total: number) => (
+        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>
+            {label} Â· {cur} of {total}
+        </p>
+    );
+
+    const stepHeading = (title: string, sub: string) => (
+        <>
+            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>{title}</h2>
+            <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: "0 0 24px", lineHeight: 1.5 }}>{sub}</p>
+        </>
+    );
+
+    // Progress
+    const totalSteps = isInvited ? 1 + PROFILE_STEPS.length : 1 + PROFILE_STEPS.length + WORKSPACE_STEPS.length;
+    const currentStep = phase === "account" ? 0 : phase === "profile" ? 1 + profileStep : 1 + PROFILE_STEPS.length + workspaceStep;
+    const progressPct = totalSteps > 1 ? Math.round((currentStep / (totalSteps - 1)) * 100) : 0;
 
     return (
-        <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors">
-            <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden">
+        <>
+            <style>{`
+                @keyframes reg-spin { to { transform: rotate(360deg); } }
+                @keyframes reg-fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                @keyframes reg-pop { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: scale(1); } }
+            `}</style>
 
-                {/* Left Side Image */}
-                <div className="relative hidden lg:block p-3.5 bg-background dark:bg-zinc-900">
-                    <img
-                        src="/src/assets/login.png"
-                        alt="Login Visual"
-                        className="h-full w-full object-cover rounded-2xl border border-border/40 dark:border-border/40 shadow-xs"
-                    />
-                </div>
+            <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors" style={{ fontFamily: "'Inter Variable', system-ui, sans-serif" }}>
+                <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden">
 
-                {/* Right Side Register steps */}
-                <div className="flex items-center justify-center p-6 sm:p-10 lg:p-14">
-                    <Card className="w-full max-w-md p-4 border-0 shadow-none bg-transparent">
+                    {/* ── Left image panel (lg+) ─────────────────────────── */}
+                    <div className="relative hidden lg:block p-3.5 bg-background">
+                        <img
+                            src="/src/assets/login.png"
+                            alt="dotheThing workspace preview"
+                            className="h-full w-full object-cover rounded-2xl border border-border/40 shadow-xs"
+                        />
+                    </div>
 
-                        <CardHeader className="space-y-3 px-0 pb-6 text-left">
-                            <CardTitle className="text-2xl font-black tracking-tight text-foreground">
-                                {step === 1 ? "Create Account" : "Setup Professional Profile"}
-                            </CardTitle>
-                            <CardDescription className="text-zinc-400 text-xs">
-                                {step === 1 
-                                    ? "Start by entering your workspace account credentials" 
-                                    : "Help your team members recognize you in the workspace details"
-                                }
-                            </CardDescription>
-                        </CardHeader>
+                    {/* ── Right form panel ───────────────────────────────── */}
+                    <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-14 relative">
 
-                        <CardContent className="px-0">
-                            <form className="space-y-4">
-                                {error && (
-                                    <div className="p-3 bg-red-50 border border-red-200 text-red-650 rounded-xl text-xs font-semibold flex items-center gap-2">
-                                        <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
-                                        <span>{error}</span>
-                                    </div>
+                        {/* Progress bar — sits at top of right panel */}
+                        {phase !== "done" && (
+                            <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: "var(--color-border)" }}>
+                                <div style={{ height: "100%", width: `${progressPct}%`, background: "var(--color-primary)", borderRadius: "0 2px 2px 0", transition: "width 0.5s cubic-bezier(.4,0,.2,1)" }} />
+                            </div>
+                        )}
+
+                    <div style={{ width: "100%", maxWidth: 400, margin: "0 auto" }}>
+                        {/* Done */}
+                        {phase === "done" && (
+                            <div style={{ textAlign: "center", padding: "20px 0", animation: "reg-fadeUp 0.4s ease forwards" }}>
+                                <div style={{ width: 68, height: 68, borderRadius: "50%", background: "#22c55e", display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 18, boxShadow: "0 8px 24px rgba(34,197,94,0.32)", animation: "reg-pop 0.45s cubic-bezier(.34,1.56,.64,1) forwards" }}>
+                                    <Check className="h-7 w-7 text-white" strokeWidth={3} />
+                                </div>
+                                <h2 style={{ fontSize: 21, fontWeight: 800, color: "var(--color-foreground)", margin: "0 0 6px", letterSpacing: "-0.02em" }}>You're all set! 🎉</h2>
+                                <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: 0 }}>Taking you to your workspace…</p>
+                            </div>
+                        )}
+
+                        {/* ACCOUNT */}
+                        {phase === "account" && (
+                            <AnimatedStep stepKey="account" direction={direction}>
+                                <div style={{ marginBottom: 24 }}>
+                                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>Step 1 of 3</p>
+                                    <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>Create your account</h2>
+                                    <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.5 }}>Takes less than a minute. No credit card needed.</p>
+                                </div>
+
+                                {globalError && (
+                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{globalError}</div>
                                 )}
 
-                                {/* STEP 1: Basic credentials */}
-                                {step === 1 && (
-                                    <div className="space-y-4">
-                                        {/* Full Name */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="name" className="text-xs font-bold text-foreground/90">Full Name</Label>
-                                            <div className="relative">
-                                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    id="name"
-                                                    type="text"
-                                                    placeholder="e.g. John Doe"
-                                                    className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                    required
-                                                    value={userInfo.name}
-                                                    onChange={(e) => handleChange(e, "name")}
-                                                />
+                                <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                                    <FieldInput id="name" label="Full name" placeholder="e.g. Aria Chen" value={userInfo.name} onChange={v => setField("name", v)} icon={User} error={errors.name} autoFocus onKeyDown={kEnter(handleAccountNext)} />
+                                    <FieldInput id="email" label="Work email" type="email" placeholder="you@company.com" value={userInfo.email} onChange={v => setField("email", v)} icon={Mail} error={errors.email} onKeyDown={kEnter(handleAccountNext)} />
+                                    <FieldInput id="password" label="Password" type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" value={userInfo.password} onChange={v => setField("password", v)} icon={Lock} error={errors.password} onKeyDown={kEnter(handleAccountNext)}
+                                        suffix={<button type="button" onClick={() => setShowPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}
+                                    />
+
+                                    {userInfo.password && (
+                                        <div style={{ padding: "11px 13px", borderRadius: 11, background: "var(--color-muted)", border: "1px solid var(--color-border)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+                                                <span style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.55 0 0)" }}>Password strength</span>
+                                                <span style={{ fontSize: 11, fontWeight: 700, color: pwStrength.color }}>{pwStrength.label}</span>
+                                            </div>
+                                            <div style={{ height: 4, borderRadius: 99, background: "var(--color-border)", overflow: "hidden" }}>
+                                                <div style={{ height: "100%", width: `${(pwStrength.score / 5) * 100}%`, background: pwStrength.color, borderRadius: 99, transition: "width 0.4s, background 0.3s" }} />
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", marginTop: 8 }}>
+                                                {([["hasMinLength", "8+ characters"], ["hasUppercase", "Uppercase"], ["hasLowercase", "Lowercase"], ["hasNumber", "Number"], ["hasSpecial", "Symbol"]] as [string, string][]).map(([k, txt]) => {
+                                                    const met = pwStrength.criteria[k as keyof typeof pwStrength.criteria];
+                                                    return (
+                                                        <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                                                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: met ? "#22c55e" : "oklch(0.8 0 0)", transition: "background 0.3s" }} />
+                                                            <span style={{ fontSize: 11, color: met ? "oklch(0.4 0 0)" : "oklch(0.65 0 0)" }}>{txt}</span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
+                                    )}
 
-                                        {/* Email Address */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="email" className="text-xs font-bold text-foreground/90">Email Address</Label>
-                                            <div className="relative">
-                                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    placeholder="you@company.com"
-                                                    className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                    required
-                                                    value={userInfo.email}
-                                                    onChange={(e) => handleChange(e, "email")}
-                                                />
-                                            </div>
-                                        </div>
+                                    <FieldInput id="confirmPassword" label="Confirm password" type={showConfirmPassword ? "text" : "password"} placeholder="Repeat your password" value={userInfo.confirmPassword} onChange={v => setField("confirmPassword", v)} icon={Lock} error={errors.confirmPassword} onKeyDown={kEnter(handleAccountNext)}
+                                        suffix={<button type="button" onClick={() => setShowConfirmPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}
+                                    />
+                                </div>
 
-                                        {/* Passwords */}
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="password" className="text-xs font-bold text-foreground/90">Password</Label>
-                                                <div className="relative">
-                                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        id="password"
-                                                        type="password"
-                                                        placeholder="Min. 6 chars"
-                                                        className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                        required
-                                                        value={userInfo.password}
-                                                        onChange={(e) => handleChange(e, "password")}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="confirmPassword" className="text-xs font-bold text-foreground/90">Confirm Password</Label>
-                                                <div className="relative">
-                                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        id="confirmPassword"
-                                                        type="password"
-                                                        placeholder="Repeat password"
-                                                        className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                        required
-                                                        value={userInfo.confirmPassword}
-                                                        onChange={(e) => handleChange(e, "confirmPassword")}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <Button
-                                            className="w-full h-10.5 rounded-xl text-xs font-bold mt-2 cursor-pointer bg-primary hover:bg-primary/90 text-white flex items-center justify-center gap-1 shadow-sm"
-                                            onClick={handleNext}
-                                        >
-                                            Continue Setup
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                )}
-
-                                {/* STEP 2: Optional professional details */}
-                                {step === 2 && (
-                                    <div className="space-y-4">
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                            {/* Designation */}
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="designation" className="text-xs font-bold text-foreground/90">Designation / Role</Label>
-                                                <div className="relative">
-                                                    <Briefcase className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        id="designation"
-                                                        type="text"
-                                                        placeholder="e.g. Lead Engineer"
-                                                        className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                        value={userInfo.designation}
-                                                        onChange={(e) => handleChange(e, "designation")}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Company */}
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="company" className="text-xs font-bold text-foreground/90">Company Name</Label>
-                                                <div className="relative">
-                                                    <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        id="company"
-                                                        type="text"
-                                                        placeholder="e.g. Stripe Inc"
-                                                        className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                        value={userInfo.company}
-                                                        onChange={(e) => handleChange(e, "company")}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Department */}
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="department" className="text-xs font-bold text-foreground/90">Department</Label>
-                                                <Input
-                                                    id="department"
-                                                    type="text"
-                                                    placeholder="e.g. Product Engineering"
-                                                    className="h-10.5 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                    value={userInfo.department}
-                                                    onChange={(e) => handleChange(e, "department")}
-                                                />
-                                            </div>
-
-                                            {/* Location */}
-                                            <div className="space-y-1.5">
-                                                <Label htmlFor="location" className="text-xs font-bold text-foreground/90">Office Location</Label>
-                                                <div className="relative">
-                                                    <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <Input
-                                                        id="location"
-                                                        type="text"
-                                                        placeholder="e.g. San Francisco, CA"
-                                                        className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                                                        value={userInfo.location}
-                                                        onChange={(e) => handleChange(e, "location")}
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Timezone */}
-                                        <div className="space-y-1.5">
-                                            <Label htmlFor="timezone" className="text-xs font-bold text-foreground/90">Office Timezone</Label>
-                                            <Select
-                                                value={userInfo.timezone}
-                                                onValueChange={(val) => handleSelectChange(val, "timezone")}
-                                            >
-                                                <SelectTrigger className="h-10.5 rounded-xl border-border text-xs font-medium">
-                                                    <SelectValue placeholder="Select office timezone" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="GMT-8 (Pacific Time)">GMT-8 (Pacific Time)</SelectItem>
-                                                    <SelectItem value="GMT-5 (Eastern Time)">GMT-5 (Eastern Time)</SelectItem>
-                                                    <SelectItem value="GMT+0 (Greenwich Time)">GMT+0 (Greenwich Time)</SelectItem>
-                                                    <SelectItem value="GMT+1 (Central European)">GMT+1 (Central European)</SelectItem>
-                                                    <SelectItem value="GMT+5:30 (IST)">GMT+5:30 (IST)</SelectItem>
-                                                    <SelectItem value="GMT+8 (Singapore Time)">GMT+8 (Singapore Time)</SelectItem>
-                                                    <SelectItem value="GMT+10 (Australian Eastern)">GMT+10 (Australian Eastern)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-
-                                        <div className="flex gap-3 pt-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                className="flex-1 h-10.5 rounded-xl text-xs font-bold border-border flex items-center justify-center gap-1.5"
-                                                onClick={() => setStep(1)}
-                                            >
-                                                <ArrowLeft className="h-4 w-4" />
-                                                Back
-                                            </Button>
-                                            <Button
-                                                className="flex-[2] h-10.5 rounded-xl text-xs font-bold cursor-pointer bg-primary hover:bg-primary/90 text-white flex items-center justify-center gap-1 shadow-sm"
-                                                onClick={handleRegister}
-                                                disabled={loading}
-                                            >
-                                                {loading ? (
-                                                    <>
-                                                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                                        Creating Account...
-                                                    </>
-                                                ) : (
-                                                    "Complete Registration"
-                                                )}
-                                            </Button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Bottom switch prompt */}
-                                <p className="text-center text-xs text-zinc-500 pt-2">
+                                <div style={{ marginTop: 22 }}>
+                                    <ContinueButton onClick={handleAccountNext} loading={loading} label={loading ? "Checking" : "Create Account"} />
+                                </div>
+                                <p style={{ textAlign: "center", fontSize: 13, color: "oklch(0.55 0 0)", marginTop: 16 }}>
                                     Already have an account?{" "}
-                                    <a href="/login" className="font-bold text-primary hover:underline">
-                                        Login here
-                                    </a>
+                                    <Link to="/login" style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "none" }}>Sign in</Link>
                                 </p>
-                            </form>
-                        </CardContent>
-                    </Card>
+                            </AnimatedStep>
+                        )}
+
+                        {/* PROFILE */}
+                        {phase === "profile" && (
+                            <AnimatedStep stepKey={`profile-${profileStep}`} direction={direction}>
+                                <BackButton onClick={handleProfileBack} />
+                                {phaseLabel("Your profile", profileStep + 1, PROFILE_STEPS.length)}
+
+                                {PROFILE_STEPS[profileStep] === "designation" && (
+                                    <>
+                                        {stepHeading("What's your role?", "Your title is shown to teammates and helps personalise your experience.")}
+                                        <FieldInput id="designation" label="Job title" placeholder="e.g. Senior Product Designer" value={userInfo.designation} onChange={v => setField("designation", v)} icon={Briefcase} autoFocus onKeyDown={kEnter(handleProfileNext)} />
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Zap} text="Your designation helps us suggest the right templates and workflows for your role." /></div>
+                                    </>
+                                )}
+
+                                {PROFILE_STEPS[profileStep] === "company" && (
+                                    <>
+                                        {stepHeading("Where do you work?", "Connecting you to the right organisation context for better collaboration.")}
+                                        <FieldInput id="company" label="Company name" placeholder="e.g. Acme Inc." value={userInfo.company} onChange={v => setField("company", v)} icon={Building2} autoFocus onKeyDown={kEnter(handleProfileNext)} />
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Globe} text="Your company name is visible to teammates in shared workspaces." /></div>
+                                    </>
+                                )}
+
+                                {PROFILE_STEPS[profileStep] === "department" && (
+                                    <>
+                                        {stepHeading("Which department?", "We'll suggest the best board templates for your team's workflow.")}
+                                        <FieldInput id="department" label="Department" placeholder="e.g. Product, Engineering, Design" value={userInfo.department} onChange={v => setField("department", v)} icon={Briefcase} autoFocus onKeyDown={kEnter(handleProfileNext)} />
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Sparkles} text="Department info helps us pre-load workflows tailored to how your team operates." /></div>
+                                    </>
+                                )}
+
+                                {PROFILE_STEPS[profileStep] === "phone" && (
+                                    <>
+                                        {stepHeading("Your phone number", "Used only for account security â€” never for marketing.")}
+                                        <FieldInput id="phone" label="Phone number" type="tel" placeholder="+1 (555) 000-0000" value={userInfo.phone} onChange={v => setField("phone", v)} icon={Phone} autoFocus onKeyDown={kEnter(handleProfileNext)} />
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Shield} text="Your number is encrypted and never shared with any third party." /></div>
+                                    </>
+                                )}
+
+                                <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 4 }}>
+                                    <ContinueButton onClick={handleProfileNext} loading={loading && profileStep === PROFILE_STEPS.length - 1}
+                                        label={loading && profileStep === PROFILE_STEPS.length - 1 ? "Setting up" : profileStep === PROFILE_STEPS.length - 1 && isInvited ? "Finish Setup" : "Continue"} />
+                                    <SkipButton onClick={() => { fw(); if (profileStep < PROFILE_STEPS.length - 1) setProfileStep(p => p + 1); else if (isInvited) handleRegister(); else { setPhase("workspace"); setWorkspaceStep(0); } }} />
+                                </div>
+                            </AnimatedStep>
+                        )}
+
+                        {/* WORKSPACE */}
+                        {phase === "workspace" && (
+                            <AnimatedStep stepKey={`ws-${workspaceStep}`} direction={direction}>
+                                <BackButton onClick={handleWorkspaceBack} />
+                                {phaseLabel("Your workspace", workspaceStep + 1, WORKSPACE_STEPS.length)}
+
+                                {globalError && (
+                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 14 }}>{globalError}</div>
+                                )}
+
+                                {WORKSPACE_STEPS[workspaceStep] === "workspaceName" && (
+                                    <>
+                                        {stepHeading("Name your workspace", "This is the home for all your team's projects. You can rename it anytime.")}
+                                        <FieldInput id="wsName" label="Workspace name" placeholder="e.g. Acme Projects" value={workspaceInfo.name} onChange={v => setWsField("name", v)} icon={Building2} error={errors.workspaceName} autoFocus onKeyDown={kEnter(handleWorkspaceNext)} />
+                                    </>
+                                )}
+
+                                {WORKSPACE_STEPS[workspaceStep] === "workspaceType" && (
+                                    <>
+                                        {stepHeading("What kind of workspace?", "Pick the setup that best fits how you'll use this space.")}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                            {WORKSPACE_TYPES.map(t => <SelectionCard key={t.id} selected={workspaceInfo.type === t.id} onClick={() => setWsField("type", t.id)} title={t.title} desc={t.desc} icon={t.icon} />)}
+                                        </div>
+                                    </>
+                                )}
+
+                                {WORKSPACE_STEPS[workspaceStep] === "workspaceTeamSize" && (
+                                    <>
+                                        {stepHeading("How big is your team?", "We'll optimise your workspace layout and features for your team's size.")}
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                            {TEAM_SIZES.map((s: any) => <SelectionCard key={s.id} selected={workspaceInfo.teamSize === s.id} onClick={() => setWsField("teamSize", s.id)} title={s.label} icon={s.icon} />)}
+                                        </div>
+                                    </>
+                                )}
+
+                                {WORKSPACE_STEPS[workspaceStep] === "workspaceIndustry" && (
+                                    <>
+                                        {stepHeading("What's your industry?", "Helps us pre-load the best workflow templates for your business sector.")}
+                                        <FieldInput id="wsIndustry" label="Industry" placeholder="e.g. Technology, Finance, Healthcare" value={workspaceInfo.industry} onChange={v => setWsField("industry", v)} icon={Briefcase} error={errors.workspaceIndustry} autoFocus onKeyDown={kEnter(handleWorkspaceNext)} />
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Sparkles} text="Industry-specific templates save hours of setup â€” we've done the heavy lifting." /></div>
+                                    </>
+                                )}
+
+                                {WORKSPACE_STEPS[workspaceStep] === "workspaceInviteMembers" && (
+                                    <>
+                                        {stepHeading("Bring your team along", "Invite colleagues now and start collaborating immediately.")}
+                                        <div>
+                                            <label htmlFor="wsInvites" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 6 }}>Email addresses</label>
+                                            <div style={{ position: "relative" }}>
+                                                <Users className="h-4 w-4 absolute" style={{ left: 16, top: 14, color: "oklch(0.6 0 0)" }} />
+                                                <textarea id="wsInvites" placeholder={"colleague@company.com\nanother@team.com"} rows={4} value={workspaceInfo.invitedMembers}
+                                                    onChange={e => setWsField("invitedMembers", e.target.value)}
+                                                    style={{ width: "100%", paddingLeft: 44, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 14, fontSize: 14, fontWeight: 500, border: "1.5px solid var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)", outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box", transition: "border-color 0.2s, box-shadow 0.2s" }}
+                                                    onFocus={e => { e.target.style.borderColor = "var(--color-primary)"; e.target.style.boxShadow = "0 0 0 3px oklch(0.511 0.262 276.966 / 10%)"; }}
+                                                    onBlur={e => { e.target.style.borderColor = "var(--color-border)"; e.target.style.boxShadow = "none"; }}
+                                                />
+                                            </div>
+                                            <p style={{ fontSize: 11, color: "oklch(0.6 0 0)", marginTop: 5, paddingLeft: 2 }}>Separate multiple emails with commas or new lines</p>
+                                        </div>
+                                        <div style={{ marginTop: 14 }}><TipCard icon={Users} text="Teams that invite colleagues early see 4Ã— faster project momentum. You're off to a great start." /></div>
+                                    </>
+                                )}
+
+                                <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 4 }}>
+                                    <ContinueButton onClick={handleWorkspaceNext} loading={loading}
+                                        label={loading ? "Creating workspace" : workspaceStep === WORKSPACE_STEPS.length - 1 ? "Launch Workspace ðŸš€" : "Continue"} />
+                                    {WORKSPACE_STEPS[workspaceStep] === "workspaceInviteMembers" && (
+                                        <SkipButton onClick={() => { fw(); handleRegister(); }} />
+                                    )}
+                                </div>
+                            </AnimatedStep>
+                        )}
+                    </div>
+
+                    {phase !== "done" && (
+                        <p style={{ textAlign: "center", fontSize: 12, color: "oklch(0.65 0 0)", marginTop: 18, lineHeight: 1.5 }}>
+                            By continuing, you agree to our{" "}
+                            <a href="#" style={{ color: "var(--color-primary)", textDecoration: "none" }}>Terms of Service</a>{" "}and{" "}
+                            <a href="#" style={{ color: "var(--color-primary)", textDecoration: "none" }}>Privacy Policy</a>
+                        </p>
+                    )}
+                    </div>
                 </div>
             </div>
-        </div>
+        </>
     );
 }

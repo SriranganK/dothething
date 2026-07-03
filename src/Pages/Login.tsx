@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useConfirm } from "@/context/ConfirmContext";
-import { Mail, Lock, KeyRound, Globe, ArrowRight, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Mail, Lock, KeyRound, Globe, ArrowRight, ArrowLeft, ShieldAlert, Eye, EyeOff } from "lucide-react";
 
 export function Login() {
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ export function Login() {
   const [showMFA, setShowMFA] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [tempToken, setTempToken] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>, name: string) => {
     const { value } = e.target;
@@ -320,18 +321,25 @@ export function Login() {
                             Forgot?
                           </Link>
                         </div>
-                        <div className="relative">
-                          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                          <Input
-                            id="password"
-                            type="password"
-                            placeholder="Enter account password"
-                            className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
-                            value={userInfo.password}
-                            onChange={(e) => handleChange(e, "password")}
-                            required
-                          />
-                        </div>
+                         <div className="relative">
+                           <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                           <Input
+                             id="password"
+                             type={showPassword ? "text" : "password"}
+                             placeholder="Enter account password"
+                             className="h-10.5 pl-10 pr-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
+                             value={userInfo.password}
+                             onChange={(e) => handleChange(e, "password")}
+                             required
+                           />
+                           <button
+                             type="button"
+                             onClick={() => setShowPassword(!showPassword)}
+                             className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer focus:outline-hidden"
+                           >
+                             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                           </button>
+                         </div>
                       </div>
                     )}
 
