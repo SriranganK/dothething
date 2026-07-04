@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { API_BASE_URL } from '@/config';
 import { toast } from 'sonner';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
@@ -325,7 +326,7 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
     setSavingInfo(true);
     setInfoMsg(null);
     try {
-      const res = await fetch('http://localhost:5000/api/users/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -372,7 +373,7 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
   const handleUpdateStatus = async (newStatus: string) => {
     setStatus(newStatus);
     try {
-      const res = await fetch('http://localhost:5000/api/users/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -404,7 +405,7 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
     const newVal = !twoFactorEnabled;
     setTwoFactorEnabled(newVal);
     try {
-      const res = await fetch('http://localhost:5000/api/users/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/users/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -453,7 +454,7 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
 
     setSavingPw(true);
     try {
-      const res = await fetch('http://localhost:5000/api/users/change-password', {
+      const res = await fetch(`${API_BASE_URL}/api/users/change-password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

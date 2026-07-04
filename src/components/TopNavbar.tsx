@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
+import darkThemeLogo from "@/assets/logo_dark.png"
+import lightThemeLogo from "@/assets/logo.png"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,7 +55,7 @@ export function TopNavbar({ onProfileClick, onUserProfileClick }: TopNavbarProps
         {/* Logo */}
         <div className="flex items-center shrink-0">
           <img
-            src={resolvedTheme === "dark" ? "/src/assets/logo_dark.png" : "/src/assets/logo.png"}
+            src={resolvedTheme === "dark" ? darkThemeLogo : lightThemeLogo}
             alt="Logo"
             className="h-10 w-auto object-contain"
           />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { API_BASE_URL } from '@/config';
 import { useConfirm } from '@/context/ConfirmContext';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -136,7 +137,7 @@ export default function WorkspaceProfilePage({
     const newVal = !ssoEnabled;
     setSsoEnabled(newVal);
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ ssoEnabled: newVal })
@@ -155,7 +156,7 @@ export default function WorkspaceProfilePage({
     const newVal = !mfaEnforced;
     setMfaEnforced(newVal);
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ mfaEnforced: newVal })
@@ -190,7 +191,7 @@ export default function WorkspaceProfilePage({
     if (!workspace) return;
     setLoadingMembers(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}/members`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}/members`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error('Failed to fetch workspace members');
@@ -211,7 +212,7 @@ export default function WorkspaceProfilePage({
     setInviteError('');
     setInviteSuccess('');
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}/members/invite`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}/members/invite`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole })
@@ -231,7 +232,7 @@ export default function WorkspaceProfilePage({
   const handleRoleChange = async (memberId: string, newRole: string) => {
     if (!workspace) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}/members/${memberId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}/members/${memberId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ role: newRole })
@@ -251,7 +252,7 @@ export default function WorkspaceProfilePage({
     });
     if (!ok) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}/members/${memberId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}/members/${memberId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -263,7 +264,7 @@ export default function WorkspaceProfilePage({
   const handleCancelInvite = async (invitationId: string) => {
     if (!workspace) return;
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}/invitations/${invitationId}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}/invitations/${invitationId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -277,7 +278,7 @@ export default function WorkspaceProfilePage({
     if (!workspace) return;
     setUpdatingSettings(true);
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: wsName, type: wsType, teamSize: wsTeamSize, industry: wsIndustry, description: wsDesc })
@@ -302,7 +303,7 @@ export default function WorkspaceProfilePage({
     });
     if (confirmName !== workspace.name) { toast.error('Name mismatch. Deletion cancelled.'); return; }
     try {
-      const res = await fetch(`http://localhost:5000/api/workspaces/${workspace._id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspace._id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });

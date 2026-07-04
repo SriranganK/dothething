@@ -1,5 +1,6 @@
 // src/components/BoardCreateModal.tsx
 import { useState } from "react";
+import { API_BASE_URL } from "@/config";
 import {
   Dialog,
   DialogContent,
@@ -72,7 +73,7 @@ export function BoardCreateModal({
 
   // Check for duplicate board name in current workspace
   try {
-    const dupRes = await fetch(`http://localhost:5000/api/boards?workspaceId=${workspaceId}`, {
+    const dupRes = await fetch(`${API_BASE_URL}/api/boards?workspaceId=${workspaceId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (dupRes.ok) {
@@ -90,7 +91,7 @@ export function BoardCreateModal({
   setSubmitting(true);
 
   try {
-    const response = await fetch("http://localhost:5000/api/boards", {
+    const response = await fetch(`${API_BASE_URL}/api/boards`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

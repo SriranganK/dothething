@@ -1,5 +1,6 @@
 // src/components/WorkspaceCreateModal.tsx
 import { useState } from "react";
+import { API_BASE_URL } from "@/config";
 import {
   Dialog,
   DialogContent,
@@ -81,7 +82,7 @@ export function WorkspaceCreateModal({
     setSubmitting(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/workspaces", {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

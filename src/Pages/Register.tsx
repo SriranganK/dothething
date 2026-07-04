@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_BASE_URL } from "@/config";
+import loginImg from "@/assets/login.png";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -269,7 +271,7 @@ export default function Register() {
         setLoading(true);
         setGlobalError("");
         try {
-            const res = await fetch(`http://localhost:5000/api/auth/check-invitation?email=${encodeURIComponent(userInfo.email.trim())}`);
+            const res = await fetch(`${API_BASE_URL}/api/auth/check-invitation?email=${encodeURIComponent(userInfo.email.trim())}`);
             const data = await res.json();
             setIsInvited(res.ok ? data.hasInvitation : false);
         } catch { setIsInvited(false); }
@@ -307,7 +309,7 @@ export default function Register() {
     const handleRegister = async () => {
         setLoading(true); setGlobalError("");
         try {
-            const res = await fetch("http://localhost:5000/api/auth/register", {
+            const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ name: userInfo.name.trim(), email: userInfo.email.trim().toLowerCase(), password: userInfo.password, designation: userInfo.designation.trim(), company: userInfo.company.trim(), department: userInfo.department.trim(), phone: userInfo.phone.trim(), location: "", timezone: "GMT+5:30 (IST)" }),
             });
@@ -316,7 +318,7 @@ export default function Register() {
             login(data.token, data.user);
             if (!isInvited) {
                 const emails = workspaceInfo.invitedMembers.split(/[\s,;]+/).map(e => e.trim()).filter(e => e.includes("@"));
-                const wsRes = await fetch("http://localhost:5000/api/workspaces", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.token}` }, body: JSON.stringify({ name: workspaceInfo.name.trim(), type: workspaceInfo.type, teamSize: workspaceInfo.teamSize, industry: workspaceInfo.industry.trim(), members: emails }) });
+                const wsRes = await fetch(`${API_BASE_URL}/api/workspaces`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.token}` }, body: JSON.stringify({ name: workspaceInfo.name.trim(), type: workspaceInfo.type, teamSize: workspaceInfo.teamSize, industry: workspaceInfo.industry.trim(), members: emails }) });
                 const wsData = await wsRes.json();
                 if (!wsRes.ok) throw new Error(wsData.message || "Workspace creation failed");
             }
@@ -363,7 +365,7 @@ export default function Register() {
                     {/* ── Left image panel (lg+) ─────────────────────────── */}
                     <div className="relative hidden lg:block p-3.5 bg-background">
                         <img
-                            src="/src/assets/login.png"
+                            src={loginImg}
                             alt="dotheThing workspace preview"
                             className="h-full w-full object-cover rounded-2xl border border-border/40 shadow-xs"
                         />

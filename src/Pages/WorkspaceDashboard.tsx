@@ -1,5 +1,6 @@
 // src/Pages/WorkspaceDashboard.tsx
 import { useState, useEffect, useMemo } from "react";
+import { API_BASE_URL } from "@/config";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -252,7 +253,7 @@ export function WorkspaceDashboard({
       setSummaryOpen(true);
 
       const itemsRes = await fetch(
-        `http://localhost:5000/api/boards/${board._id}/items`,
+        `${API_BASE_URL}/api/boards/${board._id}/items`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

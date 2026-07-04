@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { API_BASE_URL } from "@/config";
+import loginImg from "@/assets/login.png";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -41,7 +43,7 @@ export function Login() {
       return;
     }
     try {
-      const res = await fetch(`http://localhost:5000/api/auth/check-sso?email=${email.trim()}`);
+      const res = await fetch(`${API_BASE_URL}/api/auth/check-sso?email=${email.trim()}`);
       if (res.ok) {
         const data = await res.json();
         setSsoRequired(data.ssoRequired);
@@ -80,7 +82,7 @@ export function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,7 +118,7 @@ export function Login() {
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/sso-login", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/sso-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: userInfo.email.trim() }),
@@ -146,7 +148,7 @@ export function Login() {
     if (!email || typeof email !== 'string') return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/sso-login", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/sso-login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), name: email.split('@')[0] }),
@@ -171,7 +173,7 @@ export function Login() {
     }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/verify-mfa", {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify-mfa`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ tempToken, code: mfaCode.trim() }),
@@ -194,7 +196,7 @@ export function Login() {
         {/* Left Side Branding Image */}
         <div className="relative hidden lg:block p-3.5 bg-background">
           <img
-            src="/src/assets/login.png"
+            src={loginImg}
             alt="Login Visual"
             className="h-full w-full object-cover rounded-2xl border border-border/40 shadow-xs"
           />

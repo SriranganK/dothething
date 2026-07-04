@@ -3,9 +3,10 @@ import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolk
 import type { WorkspaceType, BoardType, ItemType, ColumnType } from '@/types/workspace';
 import type { RootState } from '../index';
 import { clearCredentials } from '../slices/authSlice';
+import { API_BASE_URL } from '@/config';
 
 const rawBaseQuery = fetchBaseQuery({
-  baseUrl: 'http://localhost:5000/api',
+  baseUrl: `${API_BASE_URL}/api`,
   prepareHeaders: (headers, { getState }) => {
     const token = (getState() as RootState).auth.token;
     if (token) {

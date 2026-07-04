@@ -5,6 +5,7 @@ import { Toaster, toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
 import { backendApi } from '../store/services/api';
 import { useAppDispatch } from '../store/hooks';
+import { API_BASE_URL } from '@/config';
 
 interface NotificationContextType {
   unreadCount: number;
@@ -115,7 +116,7 @@ export const NotificationProvider: React.FC<PropsWithChildren<{}>> = ({ children
       return;
     }
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(API_BASE_URL, {
       auth: { token },
       transports: ['websocket'],
     });
