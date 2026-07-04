@@ -2,6 +2,8 @@
   "compilerOptions": {
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
+    "moduleResolution": "bundler",
+    "skipLibCheck": true,
     "paths": {
       "@/*": [
         "./src/*"
