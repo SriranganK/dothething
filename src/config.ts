@@ -8,5 +8,4 @@ const getApiUrl = (): string => {
   return origin;
 };
 
-export const API_BASE_URL = getApiUrl();
-  
+export const API_BASE_URL = getApiUrl();  

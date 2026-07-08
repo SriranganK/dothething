@@ -222,7 +222,7 @@ export default function Register() {
     const navigate = useNavigate();
     const { login } = useAuth();
 
-    const [phase, setPhase] = useState<"account" | "profile" | "workspace" | "done">("account");
+    const [phase, setPhase] = useState<"account" | "verify_email" | "profile" | "workspace" | "done">("account");
     const [profileStep, setProfileStep] = useState(0);
     const [workspaceStep, setWorkspaceStep] = useState(0);
     const [direction, setDirection] = useState<"forward" | "backward">("forward");
@@ -233,6 +233,11 @@ export default function Register() {
     const [userInfo, setUserInfo] = useState<UserInfo>({ name: "", email: "", password: "", confirmPassword: "", designation: "", company: "", department: "", phone: "" });
     const [workspaceInfo, setWorkspaceInfo] = useState<WorkspaceInfo>({ name: "", type: "Personal", teamSize: "Just me", industry: "", invitedMembers: "" });
 
+    const [otpCode, setOtpCode] = useState("");
+    const [registrationToken, setRegistrationToken] = useState("");
+    const [otpCooldown, setOtpCooldown] = useState(0);
+    const [otpError, setOtpError] = useState("");
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [errors, setErrors] = useState<ValidationErrors>({});
@@ -240,6 +245,13 @@ export default function Register() {
     const pwStrength = getPasswordStrength(userInfo.password);
 
     useEffect(() => { if (localStorage.getItem("token")) navigate("/"); }, [navigate]);
+
+    useEffect(() => {
+        if (otpCooldown > 0) {
+            const timer = setTimeout(() => setOtpCooldown(c => c - 1), 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [otpCooldown]);
 
     const setField = useCallback((field: keyof UserInfo, value: string) => {
         setUserInfo(prev => ({ ...prev, [field]: value }));
@@ -271,12 +283,94 @@ export default function Register() {
         setLoading(true);
         setGlobalError("");
         try {
-            const res = await fetch(`${API_BASE_URL}/api/auth/check-invitation?email=${encodeURIComponent(userInfo.email.trim())}`);
+            // First check if invitation exists
+            try {
+                const res = await fetch(`${API_BASE_URL}/api/auth/check-invitation?email=${encodeURIComponent(userInfo.email.trim())}`);
+                const data = await res.json();
+                setIsInvited(res.ok ? data.hasInvitation : false);
+            } catch { 
+                setIsInvited(false); 
+            }
+
+            // Send registration OTP
+            const otpRes = await fetch(`${API_BASE_URL}/api/auth/send-registration-otp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userInfo.email.trim().toLowerCase() }),
+            });
+            const otpData = await otpRes.json();
+            if (!otpRes.ok) {
+                throw new Error(otpData.message || "Failed to send verification code.");
+            }
+
+            // Success -> transition to verify_email
+            setOtpCooldown(30);
+            fw();
+            setPhase("verify_email");
+            setOtpCode("");
+            setOtpError("");
+        } catch (err: any) {
+            setGlobalError(err.message || "Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifyOTP = async () => {
+        if (otpCode.trim().length !== 6) {
+            setOtpError("Please enter the 6-digit verification code.");
+            return;
+        }
+        setLoading(true);
+        setOtpError("");
+        setGlobalError("");
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/auth/verify-registration-otp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: userInfo.email.trim().toLowerCase(),
+                    code: otpCode.trim()
+                }),
+            });
             const data = await res.json();
-            setIsInvited(res.ok ? data.hasInvitation : false);
-        } catch { setIsInvited(false); }
-        setLoading(false);
-        fw(); setPhase("profile"); setProfileStep(0);
+            if (!res.ok) {
+                throw new Error(data.message || "Invalid or expired verification code.");
+            }
+
+            // Store token and proceed to profile step
+            setRegistrationToken(data.registrationToken);
+            fw();
+            setPhase("profile");
+            setProfileStep(0);
+        } catch (err: any) {
+            setOtpError(err.message || "An error occurred during verification.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResendOTP = async () => {
+        if (otpCooldown > 0) return;
+        setLoading(true);
+        setOtpError("");
+        setGlobalError("");
+        try {
+            const otpRes = await fetch(`${API_BASE_URL}/api/auth/send-registration-otp`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userInfo.email.trim().toLowerCase() }),
+            });
+            const otpData = await otpRes.json();
+            if (!otpRes.ok) {
+                throw new Error(otpData.message || "Failed to resend verification code.");
+            }
+            setOtpCooldown(30);
+        } catch (err: any) {
+            setOtpError(err.message || "Failed to resend verification code.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleProfileNext = () => {
@@ -288,7 +382,7 @@ export default function Register() {
     const handleProfileBack = () => {
         bk();
         if (profileStep > 0) setProfileStep(p => p - 1);
-        else setPhase("account");
+        else setPhase("verify_email");
     };
 
     const handleWorkspaceNext = () => {
@@ -311,7 +405,7 @@ export default function Register() {
         try {
             const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name: userInfo.name.trim(), email: userInfo.email.trim().toLowerCase(), password: userInfo.password, designation: userInfo.designation.trim(), company: userInfo.company.trim(), department: userInfo.department.trim(), phone: userInfo.phone.trim(), location: "", timezone: "GMT+5:30 (IST)" }),
+                body: JSON.stringify({ name: userInfo.name.trim(), email: userInfo.email.trim().toLowerCase(), password: userInfo.password, designation: userInfo.designation.trim(), company: userInfo.company.trim(), department: userInfo.department.trim(), phone: userInfo.phone.trim(), location: "", timezone: "GMT+5:30 (IST)", registrationToken }),
             });
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Registration failed");
@@ -347,8 +441,16 @@ export default function Register() {
     );
 
     // Progress
-    const totalSteps = isInvited ? 1 + PROFILE_STEPS.length : 1 + PROFILE_STEPS.length + WORKSPACE_STEPS.length;
-    const currentStep = phase === "account" ? 0 : phase === "profile" ? 1 + profileStep : 1 + PROFILE_STEPS.length + workspaceStep;
+    const totalSteps = isInvited 
+        ? 2 + PROFILE_STEPS.length 
+        : 2 + PROFILE_STEPS.length + WORKSPACE_STEPS.length;
+    const currentStep = phase === "account" 
+        ? 0 
+        : phase === "verify_email" 
+        ? 1 
+        : phase === "profile" 
+        ? 2 + profileStep 
+        : 2 + PROFILE_STEPS.length + workspaceStep;
     const progressPct = totalSteps > 1 ? Math.round((currentStep / (totalSteps - 1)) * 100) : 0;
 
     return (
@@ -448,6 +550,64 @@ export default function Register() {
                                     Already have an account?{" "}
                                     <Link to="/login" style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "none" }}>Sign in</Link>
                                 </p>
+                            </AnimatedStep>
+                        )}
+
+                        {/* VERIFY EMAIL */}
+                        {phase === "verify_email" && (
+                            <AnimatedStep stepKey="verify_email" direction={direction}>
+                                <BackButton onClick={() => { bk(); setPhase("account"); }} />
+                                <div style={{ marginBottom: 24 }}>
+                                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>Step 2 of {totalSteps}</p>
+                                    <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>Verify your email</h2>
+                                    <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.5 }}>
+                                        We sent a 6-digit code to <strong style={{ color: "var(--color-foreground)" }}>{userInfo.email}</strong>.
+                                    </p>
+                                </div>
+
+                                {otpError && (
+                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{otpError}</div>
+                                )}
+
+                                <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                                    <FieldInput 
+                                        id="otpCode" 
+                                        label="Verification Code" 
+                                        placeholder="e.g. 123456" 
+                                        value={otpCode} 
+                                        onChange={v => {
+                                            const val = v.replace(/[^0-9]/g, "").slice(0, 6);
+                                            setOtpCode(val);
+                                            setOtpError("");
+                                        }} 
+                                        icon={Shield} 
+                                        autoFocus 
+                                        onKeyDown={kEnter(handleVerifyOTP)} 
+                                    />
+                                </div>
+
+                                <div style={{ marginTop: 22 }}>
+                                    <ContinueButton onClick={handleVerifyOTP} loading={loading} label={loading ? "Verifying..." : "Verify Code"} />
+                                </div>
+
+                                <div style={{ textAlign: "center", marginTop: 16 }}>
+                                    <button 
+                                        type="button" 
+                                        onClick={handleResendOTP} 
+                                        disabled={loading || otpCooldown > 0} 
+                                        style={{ 
+                                            background: "none", 
+                                            border: "none", 
+                                            cursor: otpCooldown > 0 ? "not-allowed" : "pointer", 
+                                            color: otpCooldown > 0 ? "oklch(0.65 0 0)" : "var(--color-primary)", 
+                                            fontWeight: 600, 
+                                            fontSize: 13, 
+                                            textDecoration: "none" 
+                                        }}
+                                    >
+                                        {otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : "Resend Verification Code"}
+                                    </button>
+                                </div>
                             </AnimatedStep>
                         )}
 

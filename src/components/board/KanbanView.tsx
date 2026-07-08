@@ -13,6 +13,9 @@ import {
   type DragOverEvent,
   defaultDropAnimationSideEffects,
   type DropAnimation,
+  useDroppable,
+  pointerWithin,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -226,6 +229,26 @@ export function KanbanView({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
+  // Custom collision detection strategy
+  const customCollisionDetection: CollisionDetection = (args) => {
+    // 1. Start by finding pointer collisions
+    const pointerCollisions = pointerWithin(args);
+
+    if (pointerCollisions.length > 0) {
+      // Prioritize item collisions over column collisions
+      const itemCollision = pointerCollisions.find((c) =>
+        localItems.some((it) => it._id === c.id)
+      );
+      if (itemCollision) {
+        return [itemCollision];
+      }
+      return pointerCollisions;
+    }
+
+    // 2. Fallback to closestCenter
+    return closestCenter(args);
+  };
+
   // Smooth drop animation config
   const dropAnimation: DropAnimation = {
     sideEffects: defaultDropAnimationSideEffects({
@@ -376,7 +399,7 @@ export function KanbanView({
 
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={customCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
@@ -482,16 +505,15 @@ export function KanbanView({
 
               {/* Cards List with Sortable Context */}
               <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-                <div
-                  className="flex-1 flex flex-col space-y-2.5 mb-3 pr-1"
+                <DroppableColumn
+                  colId={column.id}
+                  className="flex-1 flex flex-col space-y-2.5 mb-3 pr-1 min-h-[150px]"
                 >
                   {colItems.length === 0 ? (
-                    <DroppableColumn colId={column.id}>
-                      <div className="h-full border border-dashed border-border/85 rounded-xl flex flex-col items-center justify-center p-6 text-center text-muted-foreground/80 bg-background/20">
-                        <FileText className="h-6 w-6 stroke-1 mb-1.5 opacity-60" />
-                        <span className="text-[11px] font-medium">Drop items here</span>
-                      </div>
-                    </DroppableColumn>
+                    <div className="h-full border border-dashed border-border/85 rounded-xl flex flex-col items-center justify-center p-6 text-center text-muted-foreground/80 bg-background/20 min-h-[120px]">
+                      <FileText className="h-6 w-6 stroke-1 mb-1.5 opacity-60" />
+                      <span className="text-[11px] font-medium">Drop items here</span>
+                    </div>
                   ) : (
                     colItems.map((item) => (
                       <SortableCard
@@ -670,7 +692,7 @@ export function KanbanView({
                   )
                 )}
                   </div>
-                </div>
+                </DroppableColumn>
               </SortableContext>
             </div>
           );
@@ -841,15 +863,23 @@ export function KanbanView({
   </>);
 }
 
-// --- Droppable Column for empty columns ---
-function DroppableColumn({ colId, children }: { colId: string; children: React.ReactNode }) {
-  const { setNodeRef } = useSortable({
+// --- Droppable Column for empty/persistent columns ---
+function DroppableColumn({
+  colId,
+  children,
+  className,
+}: {
+  colId: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  const { setNodeRef } = useDroppable({
     id: colId,
     data: { type: "column" },
   });
 
   return (
-    <div ref={setNodeRef} className="flex-1 min-h-37.5">
+    <div ref={setNodeRef} className={className}>
       {children}
     </div>
   );
