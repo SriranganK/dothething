@@ -55,7 +55,7 @@ import {
   MessageSquare,
   Users,
   Percent,
-  Sparkles,
+  Sparkles, Loader2, HelpCircle,
   ChevronDown,
   PlusCircle,
   TrendingUp,
@@ -78,7 +78,9 @@ import {
   useCreateLabelMutation,
   useGetWorkspaceActivityQuery,
   useGetWorkspaceMembersQuery,
+  useGenerateAIBoardMutation,
 } from "@/store/services/api";
+import { toast } from "sonner";
 import { ActivityFeedPopover } from "@/components/ActivityFeedPopover";
 
 import JiraSummaryPage from "@/Pages/JiraSummaryPage";
@@ -118,6 +120,29 @@ export function WorkspaceDashboard({
   const dispatch = useAppDispatch();
 
   // State definitions
+  const [aiBoardOpen, setAiBoardOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generateAIBoard, { isLoading: isGeneratingAI }] = useGenerateAIBoardMutation();
+
+  const handleGenerateAIBoard = async () => {
+    if (!aiPrompt.trim() || !workspace?._id) return;
+    try {
+      const res = await generateAIBoard({
+        workspaceId: workspace._id,
+        prompt: aiPrompt.trim(),
+      }).unwrap();
+      if (res.success && res.board) {
+        toast.success("Board generated successfully with AI!");
+        setAiPrompt("");
+        setAiBoardOpen(false);
+        onSelectBoard(res.board._id);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to generate board with AI");
+    }
+  };
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -542,19 +567,24 @@ export function WorkspaceDashboard({
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              {workspace?.role !== "GUEST" && (
-                <Button
-                  onClick={onCreateBoard}
-                  className="bg-[#4f46e5] hover:bg-[#4338ca] text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-xs transition-colors"
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />
-                  New Board
-                </Button>
-              )}
-         
-            </div>
-          </div>
+            {workspace?.role !== "GUEST" && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => setAiBoardOpen(true)}
+                    className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-200"
+                  >
+                    <Sparkles className="mr-1.5 h-4 w-4 animate-pulse" />
+                    Generate with AI
+                  </Button>
+                  <Button
+                    onClick={onCreateBoard}
+                    className="bg-muted hover:bg-muted/70 text-foreground font-bold h-10 px-5 rounded-xl cursor-pointer border border-border shadow-xs transition-colors"
+                  >
+                    <Plus className="mr-1.5 h-4 w-4" />
+                    New Board
+                  </Button>
+                </div>
+              )}           </div>
 
           {/* Three-Card Overview Section Row */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -1448,6 +1478,67 @@ export function WorkspaceDashboard({
             ) : (
               <JiraSummaryPage items={summaryItems} board={summaryBoard} />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Board Generation Dialog */}
+      <Dialog open={aiBoardOpen} onOpenChange={setAiBoardOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-6 border border-border bg-card text-card-foreground shadow-2xl">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2 select-none">
+              <div className="p-2 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-400">
+                <Sparkles className="h-5 w-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">Generate Board with AI</h3>
+                <p className="text-xs text-muted-foreground">Describe your project and workflow in natural language.</p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <textarea
+                placeholder="e.g., Marketing launch plan for our new SaaS app. Include columns for brainstorming, copywriting, design, and ready-to-publish. Generate 8 initial tasks."
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                className="w-full min-h-[100px] p-3 text-sm rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground resize-none"
+                disabled={isGeneratingAI}
+              />
+            </div>
+
+            <div className="flex justify-between items-center mt-2">
+              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                <HelpCircle className="h-3 w-3" />
+                Powered by Groq / Grok
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setAiBoardOpen(false)}
+                  disabled={isGeneratingAI}
+                  className="rounded-xl h-9 cursor-pointer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleGenerateAIBoard}
+                  disabled={isGeneratingAI || !aiPrompt.trim()}
+                  className="bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl h-9 font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isGeneratingAI ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Generating...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      <span>Generate</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

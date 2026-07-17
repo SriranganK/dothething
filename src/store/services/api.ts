@@ -1,6 +1,6 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
-import type { WorkspaceType, BoardType, ItemType, ColumnType } from '@/types/workspace';
+import type { WorkspaceType, BoardType, ItemType, ColumnType, AttachmentType } from '@/types/workspace';
 import type { RootState } from '../index';
 import { clearCredentials } from '../slices/authSlice';
 import { API_BASE_URL } from '@/config';
@@ -133,6 +133,36 @@ export const backendApi = createApi({
       query: (id) => ({
         url: `/items/${id}`,
         method: 'DELETE',
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
+    getPresignedUrl: builder.mutation<{ uploadUrl: string; storageKey: string; publicUrl: string }, { fileName: string; mimeType: string; itemId: string }>({
+      query: (body) => ({
+        url: '/attachments/presigned-url',
+        method: 'POST',
+        body,
+      }),
+    }),
+    createAttachment: builder.mutation<{ success: boolean; attachment: AttachmentType }, { issueId: string; type: 'file' | 'link'; fileName: string; originalName: string; mimeType?: string; size?: number; storageKey?: string; publicUrl: string }>({
+      query: (body) => ({
+        url: '/attachments',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
+    deleteAttachment: builder.mutation<{ success: boolean }, { id: string; permanent: boolean }>({
+      query: ({ id, permanent }) => ({
+        url: `/attachments/${id}?permanent=${permanent}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
+    updateAttachment: builder.mutation<{ success: boolean; attachment: AttachmentType }, { id: string; body: any }>({
+      query: ({ id, body }) => ({
+        url: `/attachments/${id}`,
+        method: 'PUT',
+        body,
       }),
       invalidatesTags: ['Item', 'Activity'],
     }),
@@ -356,6 +386,124 @@ export const backendApi = createApi({
       query: ({ query, workspaceId, limit = 5, page = 1 }) =>
         `/search?q=${encodeURIComponent(query)}&limit=${limit}&page=${page}${workspaceId ? `&workspaceId=${workspaceId}` : ''}`,
     }),
+
+    // INTEGRATIONS (GITHUB/GITLAB)
+    getWorkspaceIntegrations: builder.query<any, string>({
+      query: (workspaceId) => `/integrations/${workspaceId}`,
+      providesTags: ['Workspace'],
+    }),
+    getPlatformRepos: builder.query<{ success: boolean; repos: any[] }, { workspaceId: string; platform: string }>({
+      query: ({ workspaceId, platform }) => `/integrations/${workspaceId}/${platform}/repos`,
+    }),
+    getItemDevelopment: builder.query<any, string>({
+      query: (itemId) => `/integrations/item/${itemId}`,
+      providesTags: ['Item'],
+    }),
+    authorizePlatform: builder.mutation<{ success: boolean; simulated: boolean; authUrl: string }, { workspaceId: string; platform: string }>({
+      query: ({ workspaceId, platform }) => ({
+        url: `/integrations/${workspaceId}/${platform}/authorize`,
+        method: 'GET',
+      }),
+    }),
+    simulateConnect: builder.mutation<any, { workspaceId: string; platform: string }>({
+      query: ({ workspaceId, platform }) => ({
+        url: `/integrations/${workspaceId}/${platform}/simulate`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Workspace'],
+    }),
+    disconnectPlatform: builder.mutation<any, { workspaceId: string; platform: string }>({
+      query: ({ workspaceId, platform }) => ({
+        url: `/integrations/${workspaceId}/${platform}/disconnect`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Workspace'],
+    }),
+    toggleIntegration: builder.mutation<any, { workspaceId: string; platform: string; enabled: boolean }>({
+      query: ({ workspaceId, platform, enabled }) => ({
+        url: `/integrations/${workspaceId}/${platform}/toggle`,
+        method: 'POST',
+        body: { enabled },
+      }),
+      invalidatesTags: ['Workspace'],
+    }),
+    linkPlatformRepos: builder.mutation<any, { workspaceId: string; platform: string; repos: string[] }>({
+      query: ({ workspaceId, platform, repos }) => ({
+        url: `/integrations/${workspaceId}/${platform}/repos/link`,
+        method: 'POST',
+        body: { repos },
+      }),
+      invalidatesTags: ['Workspace'],
+    }),
+    linkItemRepo: builder.mutation<any, { itemId: string; repo: string }>({
+      query: ({ itemId, repo }) => ({
+        url: `/integrations/item/${itemId}/link-repo`,
+        method: 'POST',
+        body: { repo },
+      }),
+      invalidatesTags: ['Item'],
+    }),
+    createItemBranch: builder.mutation<any, { itemId: string; repo: string; branchName: string; baseBranch?: string }>({
+      query: ({ itemId, repo, branchName, baseBranch }) => ({
+        url: `/integrations/item/${itemId}/create-branch`,
+        method: 'POST',
+        body: { repo, branchName, baseBranch },
+      }),
+      invalidatesTags: ['Item'],
+    }),
+    generateAIBoard: builder.mutation<{ success: boolean; board: BoardType }, { workspaceId: string; prompt: string }>({
+      query: ({ workspaceId, prompt }) => ({
+        url: `/ai/workspace/${workspaceId}/generate-board`,
+        method: 'POST',
+        body: { prompt },
+      }),
+      invalidatesTags: ['Board', 'Item', 'Workspace', 'Activity'],
+    }),
+    generateAIColumns: builder.mutation<{ success: boolean; board: BoardType }, { boardId: string; prompt: string }>({
+      query: ({ boardId, prompt }) => ({
+        url: `/ai/board/${boardId}/generate-columns`,
+        method: 'POST',
+        body: { prompt },
+      }),
+      invalidatesTags: ['Board', 'Activity'],
+    }),
+    suggestTaskMeta: builder.mutation<{ success: boolean; suggestions: { priority: string; type: string; labels: string[]; daysFromNow: number } }, { boardId: string; title: string; description?: string }>({
+      query: ({ boardId, title, description }) => ({
+        url: `/ai/board/${boardId}/suggest-meta`,
+        method: 'POST',
+        body: { title, description },
+      }),
+    }),
+    breakTask: builder.mutation<{ success: boolean; item: ItemType }, { itemId: string }>({
+      query: ({ itemId }) => ({
+        url: `/ai/item/${itemId}/break-task`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
+    rewriteDescription: builder.mutation<{ success: boolean; description: string }, { itemId: string; tone: string }>({
+      query: ({ itemId, tone }) => ({
+        url: `/ai/item/${itemId}/rewrite-description`,
+        method: 'POST',
+        body: { tone },
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
+    boardChat: builder.mutation<{ success: boolean; reply: string }, { boardId: string; message: string }>({
+      query: ({ boardId, message }) => ({
+        url: `/ai/board/${boardId}/chat`,
+        method: 'POST',
+        body: { message },
+      }),
+    }),
+    generateTaskFromStory: builder.mutation<{ success: boolean; item: ItemType }, { boardId: string; columnId: string; title: string; story: string }>({
+      query: ({ boardId, columnId, title, story }) => ({
+        url: `/ai/board/${boardId}/column/${columnId}/generate-task`,
+        method: 'POST',
+        body: { title, story },
+      }),
+      invalidatesTags: ['Item', 'Activity'],
+    }),
   }),
 });
 
@@ -407,5 +555,26 @@ export const {
   useGetWorkspaceOverviewQuery,
   useGetWorkspaceItemsQuery,
   useGlobalSearchQuery,
+  useGetPresignedUrlMutation,
+  useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
+  useUpdateAttachmentMutation,
+  useGetWorkspaceIntegrationsQuery,
+  useGetPlatformReposQuery,
+  useGetItemDevelopmentQuery,
+  useAuthorizePlatformMutation,
+  useSimulateConnectMutation,
+  useDisconnectPlatformMutation,
+  useToggleIntegrationMutation,
+  useLinkPlatformReposMutation,
+  useLinkItemRepoMutation,
+  useCreateItemBranchMutation,
+  useGenerateAIBoardMutation,
+  useGenerateAIColumnsMutation,
+  useSuggestTaskMetaMutation,
+  useBreakTaskMutation,
+  useRewriteDescriptionMutation,
+  useBoardChatMutation,
+  useGenerateTaskFromStoryMutation,
 } = backendApi;
 

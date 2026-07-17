@@ -47,6 +47,9 @@ import {
   ArrowRight,
   ChevronsRight,
   Trash2,
+  HelpCircle,
+  Loader2,
+  Sliders,
 } from "lucide-react";
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -86,6 +89,8 @@ interface KanbanViewProps {
   workspaceRole?: string;
   assigneeOptions?: string[];
   emailToNameMap?: Record<string, string>;
+  generateAIColumns?: (prompt: string) => Promise<void>;
+  isGeneratingColumns?: boolean;
 }
 
 
@@ -164,6 +169,8 @@ export function KanbanView({
   workspaceRole,
   assigneeOptions,
   emailToNameMap,
+  generateAIColumns,
+  isGeneratingColumns,
 }: KanbanViewProps) {
   const [activeItem, setActiveItem] = useState<ItemType | null>(null);
   // Optimistic local order — updated during drag so cards shift in real-time
@@ -171,6 +178,7 @@ export function KanbanView({
   const [isAddingColumn, setIsAddingColumn] = useState(false);
   const [newColumnName, setNewColumnName] = useState("");
   const [newColumnIsDone, setNewColumnIsDone] = useState(false);
+  const [aiColumnsPrompt, setAiColumnsPrompt] = useState("");
   const [quickAddColumnId, setQuickAddColumnId] = useState<string | null>(null);
   const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
   const [editColumnName, setEditColumnName] = useState("");
@@ -702,62 +710,18 @@ export function KanbanView({
 
         {workspaceRole !== 'GUEST' && (
           <div className="w-80 shrink-0">
-            {isAddingColumn ? (
-              <form onSubmit={handleAddColumn} className="bg-card text-card-foreground border border-border rounded-2xl p-4 space-y-3 shadow-sm">
-                <Input
-                  placeholder="Column name..."
-                  value={newColumnName}
-                  onChange={(e) => setNewColumnName(e.target.value)}
-                  className="text-xs h-9 rounded-xl border-border"
-                  autoFocus
-                  required
-                />
-                {/* Completed Stage Toggle */}
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="col-done-toggle"
-                    checked={newColumnIsDone}
-                    onChange={(e) => setNewColumnIsDone(e.target.checked)}
-                    className="h-4 w-4 text-primary border-gray-300 rounded"
-                  />
-                  <label htmlFor="col-done-toggle" className="text-sm text-foreground/90">
-                    Mark as Completed Stage
-                  </label>
-                </div>
-                <div className="flex gap-1.5 justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsAddingColumn(false);
-                      setNewColumnIsDone(false);
-                    }}
-                    className="h-8 text-xs font-semibold text-muted-foreground rounded-lg cursor-pointer"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="bg-primary hover:bg-primary/90 text-white h-8 text-xs font-semibold rounded-lg cursor-pointer"
-                  >
-                    Add Column
-                  </Button>
-                </div>
-              </form>
-            ) : (
-              <button
-                onClick={() => {
-                  setIsAddingColumn(true);
-                  setNewColumnName("");
-                  setNewColumnIsDone(false);
-                }}
-                className="w-full py-3 flex items-center justify-center gap-1.5 border border-dashed border-border hover:border-primary/60 hover:bg-primary/10/20 text-muted-foreground hover:text-primary rounded-2xl text-xs font-bold transition-all cursor-pointer bg-card text-card-foreground shadow-sm"
-              >
-                <Plus className="h-4 w-4" />
-                Add Column
-              </button>
-            )}
+            <button
+              onClick={() => {
+                setIsAddingColumn(true);
+                setNewColumnName("");
+                setNewColumnIsDone(false);
+                setAiColumnsPrompt("");
+              }}
+              className="w-full py-3 flex items-center justify-center gap-1.5 border border-dashed border-border hover:border-primary/60 hover:bg-primary/10/20 text-muted-foreground hover:text-primary rounded-2xl text-xs font-bold transition-all cursor-pointer bg-card text-card-foreground shadow-sm animate-all"
+            >
+              <Plus className="h-4 w-4" />
+              Add Column
+            </button>
           </div>
         )}
       </div>
@@ -860,6 +824,112 @@ export function KanbanView({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+      {/* Add Column Dialog with AI workflow option */}
+      <Dialog open={isAddingColumn} onOpenChange={(open) => !open && setIsAddingColumn(false)}>
+        <DialogContent className="max-w-md bg-card text-card-foreground border border-border rounded-2xl p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-foreground">Add New Column</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs mt-1">
+              Create a standard workflow column or let AI configure multiple columns for your board.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Standard Add Column Form */}
+          <form onSubmit={handleAddColumn} className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label htmlFor="col-name-input" className="text-xs font-bold text-foreground">Column Name</label>
+              <Input
+                id="col-name-input"
+                placeholder="e.g. In Review, QA, Blocked"
+                value={newColumnName}
+                onChange={(e) => setNewColumnName(e.target.value)}
+                className="h-10 rounded-xl text-sm"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-2 select-none py-1">
+              <input
+                type="checkbox"
+                id="new-column-is-done-dialog"
+                checked={newColumnIsDone}
+                onChange={(e) => setNewColumnIsDone(e.target.checked)}
+                className="w-4 h-4 text-primary border-border rounded focus:ring-indigo-500 cursor-pointer"
+              />
+              <label htmlFor="new-column-is-done-dialog" className="text-xs font-semibold text-foreground/80 cursor-pointer">
+                Mark as Completed Stage (Task completes when moved here)
+              </label>
+            </div>
+            <div className="flex justify-end gap-2 pt-2 border-b border-border/60 pb-5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsAddingColumn(false);
+                  setNewColumnIsDone(false);
+                }}
+                className="rounded-xl h-9 text-xs cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={!newColumnName.trim()}
+                className="rounded-xl h-9 text-xs bg-[#4f46e5] hover:bg-[#4338ca] text-white font-semibold cursor-pointer"
+              >
+                Add Column
+              </Button>
+            </div>
+          </form>
+
+          {/* AI Workflow Suggestion */}
+          {generateAIColumns && (
+            <div className="space-y-3 pt-3">
+              <div className="flex items-center gap-1.5 select-none">
+                <Sparkles className="h-4 w-4 text-violet-500 animate-pulse animate-duration-1000" />
+                <h4 className="text-xs font-bold text-foreground">Configure workflow with AI</h4>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Enter your project goals or custom stages and the AI will auto-generate appropriate workflow columns.
+              </p>
+              <textarea
+                placeholder="E.g., marketing content timeline. Include brainstorm, writing, graphics, proofreading, scheduled, and published columns."
+                value={aiColumnsPrompt}
+                onChange={(e) => setAiColumnsPrompt(e.target.value)}
+                className="w-full min-h-[80px] p-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground resize-none"
+                disabled={isGeneratingColumns}
+              />
+              <div className="flex justify-between items-center mt-2">
+                <div className="text-[9px] text-muted-foreground flex items-center gap-0.5 select-none">
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  Groq / Grok Suggestion
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (!aiColumnsPrompt.trim()) return;
+                    await generateAIColumns(aiColumnsPrompt.trim());
+                    setIsAddingColumn(false);
+                  }}
+                  disabled={isGeneratingColumns || !aiColumnsPrompt.trim()}
+                  className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl h-8 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                >
+                  {isGeneratingColumns ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Optimizing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3.5 w-3.5 animate-pulse" />
+                      <span>Generate with AI</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
   </>);
 }
 

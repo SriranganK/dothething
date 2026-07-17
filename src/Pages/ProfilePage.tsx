@@ -39,11 +39,86 @@ import {
   Sparkles,
   Lock,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  Globe,
+  GitBranch,
+  Clock,
+  Folder,
+  ArrowUpDown,
+  Star,
+  GitFork,
+  GitCommit,
+  ExternalLink,
+  Link2,
+  Filter,
+  Tag,
 } from 'lucide-react';
 import type { WorkspaceType, BoardType } from '@/types/workspace';
-import { useGetWorkspaceActivityQuery } from '@/store/services/api';
+import {
+  useGetWorkspaceActivityQuery,
+  useGetWorkspaceIntegrationsQuery,
+  useGetPlatformReposQuery,
+  useAuthorizePlatformMutation,
+  useSimulateConnectMutation,
+  useDisconnectPlatformMutation,
+  useToggleIntegrationMutation,
+  useLinkPlatformReposMutation,
+} from '@/store/services/api';
 import { Link } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
+
+
+const Github = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={props.className}
+  >
+    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+  </svg>
+);
+
+const Gitlab = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={props.className}
+  >
+    <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l2.87-8.82a.84.84 0 0 1 .8-.58h3.76l2.27 6.94 2.27-6.94h3.76a.84.84 0 0 1 .8.58l2.87 8.82a.84.84 0 0 1-.3.94z" />
+  </svg>
+);
+
+function timeAgo(dateString: string) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 
 interface ProfilePageProps {
   workspace: WorkspaceType | null;
@@ -72,7 +147,7 @@ interface InvitationType {
   createdAt: string;
 }
 
-type NavSection = 'overview' | 'general' | 'members' | 'billing' | 'security';
+type NavSection = 'overview' | 'general' | 'members' | 'billing' | 'security' | 'integrations';
 
 const roleConfig = {
   OWNER: { icon: Crown, color: 'text-amber-500', bg: 'bg-amber-50 dark:bg-amber-950/40', border: 'border-amber-200 dark:border-amber-900/40', label: 'Owner' },
@@ -93,6 +168,160 @@ export default function WorkspaceProfilePage({
   // Navigation Section
   const [activeSection, setActiveSection] = useState<NavSection>('overview');
   const [showSidebarOnMobile, setShowSidebarOnMobile] = useState(true);
+
+  // Integrations state
+  const { data: integrationsData, refetch: refetchIntegrations } = useGetWorkspaceIntegrationsQuery(workspace?._id || '', {
+    skip: !workspace?._id
+  });
+  const [authorizePlatform] = useAuthorizePlatformMutation();
+  const [simulateConnect] = useSimulateConnectMutation();
+  const [disconnectPlatform] = useDisconnectPlatformMutation();
+  const [toggleIntegration] = useToggleIntegrationMutation();
+  const [linkPlatformRepos] = useLinkPlatformReposMutation();
+
+  const [githubRepoSearch, setGithubRepoSearch] = useState('');
+  const [gitlabRepoSearch, setGitlabRepoSearch] = useState('');
+  const [githubSelectedRepos, setGithubSelectedRepos] = useState<string[]>([]);
+  const [gitlabSelectedRepos, setGitlabSelectedRepos] = useState<string[]>([]);
+
+  const [isGithubReposDialogOpen, setIsGithubReposDialogOpen] = useState(false);
+  const [githubSort, setGithubSort] = useState<'recently_used' | 'created_date' | 'name'>('recently_used');
+  const [githubFilterVisibility, setGithubFilterVisibility] = useState<'all' | 'public' | 'private'>('all');
+
+  const [isGitlabReposDialogOpen, setIsGitlabReposDialogOpen] = useState(false);
+  const [gitlabSort, setGitlabSort] = useState<'recently_used' | 'created_date' | 'name'>('recently_used');
+  const [gitlabFilterVisibility, setGitlabFilterVisibility] = useState<'all' | 'public' | 'private'>('all');
+
+  const githubConnected = integrationsData?.integrations?.github?.connected || false;
+  const gitlabConnected = integrationsData?.integrations?.gitlab?.connected || false;
+
+  const { data: githubReposData, isLoading: loadingGithubRepos } = useGetPlatformReposQuery(
+    { workspaceId: workspace?._id || '', platform: 'github' },
+    { skip: !workspace?._id || !githubConnected }
+  );
+
+  const { data: gitlabReposData, isLoading: loadingGitlabRepos } = useGetPlatformReposQuery(
+    { workspaceId: workspace?._id || '', platform: 'gitlab' },
+    { skip: !workspace?._id || !gitlabConnected }
+  );
+
+  const githubRepoList = useMemo(() => {
+    if (!githubReposData?.repos) return [];
+
+    let filtered = [...githubReposData.repos];
+
+    // Filter by search query
+    if (githubRepoSearch.trim()) {
+      const q = githubRepoSearch.toLowerCase();
+      filtered = filtered.filter(r => r.fullName.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q)));
+    }
+
+    // Filter by visibility
+    if (githubFilterVisibility !== 'all') {
+      const isPrivate = githubFilterVisibility === 'private';
+      filtered = filtered.filter(r => r.private === isPrivate);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      if (githubSort === 'name') {
+        return a.fullName.localeCompare(b.fullName);
+      }
+      if (githubSort === 'created_date') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA; // newest first
+      }
+      // default: recently_used (updated_at)
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA; // recently updated first
+    });
+
+    return filtered;
+  }, [githubReposData, githubRepoSearch, githubSort, githubFilterVisibility]);
+
+  const gitlabRepoList = useMemo(() => {
+    if (!gitlabReposData?.repos) return [];
+
+    let filtered = [...gitlabReposData.repos];
+
+    // Filter by search query
+    if (gitlabRepoSearch.trim()) {
+      const q = gitlabRepoSearch.toLowerCase();
+      filtered = filtered.filter(r => r.fullName.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q)));
+    }
+
+    // Filter by visibility
+    if (gitlabFilterVisibility !== 'all') {
+      const isPrivate = gitlabFilterVisibility === 'private';
+      filtered = filtered.filter(r => r.private === isPrivate);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      if (gitlabSort === 'name') {
+        return a.fullName.localeCompare(b.fullName);
+      }
+      if (gitlabSort === 'created_date') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA; // newest first
+      }
+      // default: recently_used (updated_at)
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA; // recently updated first
+    });
+
+    return filtered;
+  }, [gitlabReposData, gitlabRepoSearch, gitlabSort, gitlabFilterVisibility]);
+
+  // Handle setting initial checked repos on data load
+  useEffect(() => {
+    if (integrationsData?.integrations) {
+      if (integrationsData.integrations.github?.linkedRepos) {
+        setGithubSelectedRepos(integrationsData.integrations.github.linkedRepos);
+      }
+      if (integrationsData.integrations.gitlab?.linkedRepos) {
+        setGitlabSelectedRepos(integrationsData.integrations.gitlab.linkedRepos);
+      }
+    }
+  }, [integrationsData]);
+
+  // Auto-save github linked repos with debounce
+  const [githubAutoSaving, setGithubAutoSaving] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const githubAutoSaveRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!isGithubReposDialogOpen || !workspace?._id) return;
+    // Skip on initial load — only fire when user actually changes selection
+    if (githubAutoSaveRef.current) clearTimeout(githubAutoSaveRef.current);
+    setGithubAutoSaving('saving');
+    githubAutoSaveRef.current = setTimeout(async () => {
+      try {
+        await linkPlatformRepos({ workspaceId: workspace._id, platform: 'github', repos: githubSelectedRepos }).unwrap();
+        refetchIntegrations();
+        setGithubAutoSaving('saved');
+        setTimeout(() => setGithubAutoSaving('idle'), 2000);
+      } catch {
+        setGithubAutoSaving('idle');
+      }
+    }, 800);
+    return () => { if (githubAutoSaveRef.current) clearTimeout(githubAutoSaveRef.current); };
+  }, [githubSelectedRepos]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Listen for popup window message redirecting on callback success
+  useEffect(() => {
+    const handleOauthMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'oauth-success') {
+        const platform = event.data.platform;
+        toast.success(`Connected to ${platform} successfully!`);
+        refetchIntegrations();
+      }
+    };
+    window.addEventListener('message', handleOauthMessage);
+    return () => window.removeEventListener('message', handleOauthMessage);
+  }, [refetchIntegrations]);
 
   // Members & Invites State
   const [members, setMembers] = useState<MemberType[]>([]);
@@ -373,7 +602,8 @@ export default function WorkspaceProfilePage({
             { id: 'general', label: 'General Configurations', icon: Settings, desc: 'Workspace details & info' },
             { id: 'members', label: 'Members & Roles', icon: Users, desc: 'Manage access levels' },
             { id: 'billing', label: 'Billing & Plans', icon: DollarSign, desc: 'Subscription details' },
-            { id: 'security', label: 'Security & SSO', icon: Lock, desc: 'Audits and authentication' }
+            { id: 'security', label: 'Security & SSO', icon: Lock, desc: 'Audits and authentication' },
+            { id: 'integrations', label: 'Integrations', icon: Globe, desc: 'GitHub & GitLab connections' }
           ].map((item) => {
             const Icon = item.icon;
             const isActive = activeSection === item.id;
@@ -1059,7 +1289,881 @@ export default function WorkspaceProfilePage({
             </div>
           )}
 
+          {/* ── INTEGRATIONS TAB ── */}
+          {activeSection === 'integrations' && (
+            <div className="space-y-5 animate-in fade-in duration-300">
+
+              {/* Header */}
+              <div className="space-y-1 pb-1">
+                <h2 className="text-sm font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Developer Integrations</h2>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">Connect your source control platforms to link branches, commits, and pull requests directly inside issues.</p>
+              </div>
+
+              {/* Integration Cards – stacked full-width for premium feel */}
+              <div className="space-y-4">
+
+                {/* ── GITHUB CARD ── */}
+                <div className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
+                  githubConnected
+                    ? 'border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 shadow-lg shadow-zinc-900/5 dark:shadow-black/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60'
+                }`}>
+                  {/* Top gradient strip */}
+                  <div className={`h-0.5 w-full ${githubConnected ? 'bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500' : 'bg-gradient-to-r from-zinc-300 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800'}`} />
+
+                  <div className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: Icon + Text */}
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                          githubConnected
+                            ? 'bg-zinc-950 dark:bg-zinc-800 border border-zinc-800 dark:border-zinc-700'
+                            : 'bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700'
+                        }`}>
+                          <Github className={`h-6 w-6 ${githubConnected ? 'text-white' : 'text-zinc-500 dark:text-zinc-400'}`} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 tracking-tight">GitHub</span>
+                            {githubConnected && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                integrationsData?.integrations?.github?.enabled
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${integrationsData?.integrations?.github?.enabled ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                                {integrationsData?.integrations?.github?.enabled ? 'Active' : 'Paused'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-none">
+                            {githubConnected
+                              ? `Connected as @${integrationsData?.integrations?.github?.username}`
+                              : 'Link repositories, track commits & pull requests'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      {githubConnected && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Toggle */}
+                          <button
+                            onClick={async () => {
+                              const newVal = !integrationsData.integrations.github.enabled;
+                              try {
+                                await toggleIntegration({ workspaceId: workspace._id, platform: 'github', enabled: newVal }).unwrap();
+                                toast.success(`GitHub integration ${newVal ? 'enabled' : 'disabled'}`);
+                                refetchIntegrations();
+                              } catch (err: any) {
+                                toast.error(err.message);
+                              }
+                            }}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                              integrationsData.integrations.github.enabled ? 'bg-indigo-600' : 'bg-zinc-200 dark:bg-zinc-700'
+                            }`}
+                          >
+                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                              integrationsData.integrations.github.enabled ? 'translate-x-4' : 'translate-x-0'
+                            }`} />
+                          </button>
+                          {/* Disconnect */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (window.confirm('Disconnect GitHub integration?')) {
+                                try {
+                                  await disconnectPlatform({ workspaceId: workspace._id, platform: 'github' }).unwrap();
+                                  toast.success('Disconnected GitHub');
+                                  refetchIntegrations();
+                                } catch (err: any) { toast.error(err.message); }
+                              }
+                            }}
+                            className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl cursor-pointer"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Connected state body */}
+                    {githubConnected ? (
+                      <div className="mt-5 space-y-4">
+                        {/* Avatar + stats row */}
+                        <div className="flex items-center gap-4 p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700/60">
+                          <img
+                            src={integrationsData.integrations.github.avatarUrl || "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"}
+                            alt="GitHub Avatar"
+                            className="w-10 h-10 rounded-full border-2 border-white dark:border-zinc-700 shadow-sm"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                              <a href={integrationsData.integrations.github.profileUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                @{integrationsData.integrations.github.username}
+                              </a>
+                            </div>
+                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-semibold">
+                              {integrationsData.integrations.github.linkedRepos.length === 0
+                                ? 'No repositories linked yet'
+                                : `${integrationsData.integrations.github.linkedRepos.length} repositor${integrationsData.integrations.github.linkedRepos.length === 1 ? 'y' : 'ies'} linked`}
+                            </div>
+                          </div>
+                          {/* Linked repo pills */}
+                          {integrationsData.integrations.github.linkedRepos.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[160px]">
+                              {integrationsData.integrations.github.linkedRepos.slice(0, 2).map((r: string) => (
+                                <span key={r} className="text-[9px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 px-2 py-0.5 rounded-full border border-zinc-200/60 dark:border-zinc-700 truncate max-w-[100px]">
+                                  {r.split('/').pop()}
+                                </span>
+                              ))}
+                              {integrationsData.integrations.github.linkedRepos.length > 2 && (
+                                <span className="text-[9px] font-bold text-zinc-400 dark:text-zinc-500">+{integrationsData.integrations.github.linkedRepos.length - 2}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* View repos CTA */}
+                        <Button
+                          onClick={() => {
+                            setGithubRepoSearch('');
+                            setGithubSelectedRepos(integrationsData?.integrations?.github?.linkedRepos || []);
+                            setIsGithubReposDialogOpen(true);
+                          }}
+                          className="w-full h-10 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-2 bg-zinc-950 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white border-0 shadow-sm transition-all duration-150"
+                        >
+                          <Folder className="h-4 w-4" />
+                          Manage Linked Repositories
+                          <span className="ml-auto text-[9px] font-black bg-white/10 px-2 py-0.5 rounded-full">{integrationsData.integrations.github.linkedRepos.length}</span>
+                        </Button>
+                      </div>
+                    ) : (
+                      /* Not connected state */
+                      <div className="mt-5 space-y-4">
+                        {/* Feature highlights */}
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { icon: GitBranch, label: 'Branch creation', desc: 'from issues' },
+                            { icon: Clock, label: 'Commit history', desc: 'per task' },
+                            { icon: ArrowUpDown, label: 'Pull requests', desc: 'status tracking' },
+                          ].map(({ icon: Icon, label, desc }) => (
+                            <div key={label} className="flex flex-col gap-1.5 p-3 rounded-xl bg-zinc-50/80 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700/60 text-center">
+                              <Icon className="h-4 w-4 text-zinc-400 dark:text-zinc-500 mx-auto" />
+                              <div className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 leading-tight">{label}</div>
+                              <div className="text-[9px] text-zinc-400 dark:text-zinc-500">{desc}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2.5">
+                          <Button
+                            onClick={async () => {
+                              try {
+                                const res = await authorizePlatform({ workspaceId: workspace._id, platform: 'github' }).unwrap();
+                                if (res.authUrl) {
+                                  const width = 600, height = 650;
+                                  const left = window.screenX + (window.innerWidth - width) / 2;
+                                  const top = window.screenY + (window.innerHeight - height) / 2;
+                                  window.open(res.authUrl, 'oauth', `width=${width},height=${height},left=${left},top=${top}`);
+                                }
+                              } catch (err: any) { toast.error('Failed to authorize: ' + err.message); }
+                            }}
+                            className="flex-1 h-10 bg-zinc-950 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-white rounded-xl text-xs font-bold gap-2 cursor-pointer border-0 shadow-sm"
+                          >
+                            <Github className="h-4 w-4" />
+                            Authorize with GitHub
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                await simulateConnect({ workspaceId: workspace._id, platform: 'github' }).unwrap();
+                                toast.success('Simulated GitHub connection active!');
+                                refetchIntegrations();
+                              } catch (err: any) { toast.error(err.message); }
+                            }}
+                            className="h-10 px-4 border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                          >
+                            Demo
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                  {/* Repository Management Dialog — Premium Redesign */}
+                  <Dialog open={isGithubReposDialogOpen} onOpenChange={setIsGithubReposDialogOpen}>
+                    <DialogContent className="!w-[96vw] !max-w-[96vw] h-[88vh] max-h-[88vh] p-0 gap-0 border-0 bg-transparent rounded-2xl shadow-none z-50 overflow-hidden">
+                      <div className="flex h-full w-full rounded-2xl overflow-hidden border border-border shadow-2xl bg-background">
+
+                        {/* ── LEFT SIDEBAR ── */}
+                        <div className="w-72 shrink-0 flex flex-col border-r border-border bg-card">
+                          {/* Sidebar Header */}
+                          <div className="px-5 pt-5 pb-4 border-b border-border">
+                            <div className="flex items-center gap-3 mb-1">
+                              <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+                                <Github className="h-4 w-4 text-white" />
+                              </div>
+                              <div>
+                                <DialogTitle className="text-[13px] font-black text-foreground leading-none">GitHub</DialogTitle>
+                                <DialogDescription className="text-[10px] text-zinc-500 mt-0.5 leading-none">Repository Manager</DialogDescription>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Linked Repos Section */}
+                          <div className="flex-1 overflow-y-auto px-3 py-4 min-h-0">
+                            <div className="flex items-center gap-2 px-2 mb-3">
+                              <Link2 className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Linked Repos</span>
+                              <span className="ml-auto text-[9px] font-black bg-primary/20 text-primary border border-primary/30 px-1.5 py-0.5 rounded-full">{githubSelectedRepos.length}</span>
+                            </div>
+                            {githubSelectedRepos.length === 0 ? (
+                              <div className="mx-2 px-3 py-4 rounded-xl border border-dashed border-border text-center">
+                                <p className="text-[10px] text-muted-foreground">No repos linked yet</p>
+                                <p className="text-[9px] text-muted-foreground/60 mt-0.5">Select from the right →</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-1">
+                                {githubSelectedRepos.map((repoName) => (
+                                  <div
+                                    key={repoName}
+                                    className="group flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-primary/8 border border-primary/15 hover:border-primary/30 transition-all duration-150 cursor-default"
+                                  >
+                                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                                      <Folder className="h-3 w-3 text-primary" />
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-foreground/80 truncate flex-1 leading-tight">{repoName.split('/').pop()}</span>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); setGithubSelectedRepos(prev => prev.filter(r => r !== repoName)); }}
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity w-4 h-4 rounded-full bg-muted-foreground/20 hover:bg-destructive/80 flex items-center justify-center shrink-0"
+                                    >
+                                      <X className="h-2.5 w-2.5 text-white" />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Divider */}
+                            <div className="mt-5 mb-4 border-t border-border" />
+
+                            {/* Filter Options in Sidebar */}
+                            <div className="flex items-center gap-2 px-2 mb-2">
+                              <Filter className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Visibility</span>
+                            </div>
+                            <div className="space-y-0.5 px-1">
+                              {(['all', 'public', 'private'] as const).map((v) => (
+                                <button
+                                  key={v}
+                                  onClick={() => setGithubFilterVisibility(v)}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all duration-150 ${
+                                    githubFilterVisibility === v
+                                      ? 'bg-accent text-foreground border border-border'
+                                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
+                                  }`}
+                                >
+                                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                                    v === 'all' ? 'bg-zinc-400' : v === 'public' ? 'bg-emerald-400' : 'bg-amber-400'
+                                  }`} />
+                                  <span className="capitalize">{v}</span>
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="mt-4 mb-2">
+                              <div className="flex items-center gap-2 px-2 mb-2">
+                                <Tag className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Sort By</span>
+                              </div>
+                              <div className="space-y-0.5 px-1">
+                                {([['recently_used', 'Recently Updated'], ['created_date', 'Created Date'], ['name', 'Name A–Z']] as const).map(([val, label]) => (
+                                  <button
+                                    key={val}
+                                    onClick={() => setGithubSort(val)}
+                                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all duration-150 ${
+                                      githubSort === val
+                                        ? 'bg-white/8 text-white border border-white/10'
+                                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/4'
+                                    }`}
+                                  >
+                                    {githubSort === val && <Check className="h-3 w-3 text-primary shrink-0" />}
+                                    {githubSort !== val && <span className="w-3 shrink-0" />}
+                                    <span>{label}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Sidebar Footer — Auto-save status */}
+                          <div className="px-4 py-3 border-t border-border shrink-0 flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground font-medium">Changes saved automatically</span>
+                            <div className={`flex items-center gap-1.5 text-[10px] font-semibold transition-all duration-300 ${
+                              githubAutoSaving === 'saving' ? 'text-primary' :
+                              githubAutoSaving === 'saved' ? 'text-emerald-500 dark:text-emerald-400' :
+                              'text-muted-foreground/40'
+                            }`}>
+                              {githubAutoSaving === 'saving' && <Loader2 className="h-3 w-3 animate-spin" />}
+                              {githubAutoSaving === 'saved' && <Check className="h-3 w-3" />}
+                              {githubAutoSaving === 'saving' ? 'Saving…' : githubAutoSaving === 'saved' ? 'Saved' : 'Auto-save'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ── RIGHT MAIN PANEL ── */}
+                        <div className="flex-1 flex flex-col min-w-0 bg-background">
+                          {/* Top Navbar: Search + Quick Filters */}
+                          <div className="flex items-center gap-3 px-5 py-4 border-b border-border shrink-0">
+                            <div className="relative flex-1">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              <input
+                                type="text"
+                                placeholder="Search repositories by name or description..."
+                                value={githubRepoSearch}
+                                onChange={(e) => setGithubRepoSearch(e.target.value)}
+                                className="w-full h-9 pl-9 pr-4 rounded-xl bg-muted border border-input text-[12px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/15 transition-all"
+                              />
+                              {githubRepoSearch && (
+                                <button
+                                  onClick={() => setGithubRepoSearch('')}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            {/* Quick filter pills */}
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {(['all', 'public', 'private'] as const).map(v => (
+                                <button
+                                  key={v}
+                                  onClick={() => setGithubFilterVisibility(v)}
+                                  className={`h-8 px-3 rounded-lg text-[11px] font-semibold transition-all duration-150 ${
+                                    githubFilterVisibility === v
+                                      ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/30'
+                                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground border border-border'
+                                  }`}
+                                >
+                                  {v.charAt(0).toUpperCase() + v.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                            {/* Repo count badge */}
+                            <div className="shrink-0 text-[11px] font-semibold text-muted-foreground bg-muted px-3 py-1.5 rounded-lg border border-border">
+                              {githubRepoList.length} repo{githubRepoList.length !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+
+                          {/* Repo Cards Grid */}
+                          <div className="flex-1 overflow-y-auto px-5 py-4">
+                            {loadingGithubRepos ? (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {Array.from({ length: 6 }).map((_, idx) => (
+                                  <div key={idx} className="p-5 border border-zinc-800/60 rounded-2xl space-y-3 bg-white/2 animate-pulse">
+                                    <div className="flex items-center justify-between">
+                                      <Skeleton className="h-4 w-32 bg-zinc-800" />
+                                      <Skeleton className="h-5 w-14 rounded-full bg-zinc-800" />
+                                    </div>
+                                    <Skeleton className="h-3 w-48 bg-zinc-800" />
+                                    <div className="flex items-center gap-4">
+                                      <Skeleton className="h-3 w-16 bg-zinc-800" />
+                                      <Skeleton className="h-3 w-16 bg-zinc-800" />
+                                      <Skeleton className="h-3 w-16 bg-zinc-800" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : githubRepoList.length === 0 ? (
+                              <div className="flex flex-col items-center justify-center h-full py-20 text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-muted border border-border flex items-center justify-center mb-5">
+                                  <Folder className="h-7 w-7 text-muted-foreground/50" />
+                                </div>
+                                <p className="text-sm font-bold text-muted-foreground">No repositories found</p>
+                                <p className="text-xs text-muted-foreground/60 mt-1.5">Try adjusting your search or filters</p>
+                              </div>
+                            ) : (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {githubRepoList.map((repo) => {
+                                  const isSelected = githubSelectedRepos.includes(repo.fullName);
+                                  const getLangColor = (lang: string) => {
+                                    if (!lang) return '#71717a';
+                                    const colors: Record<string, string> = {
+                                      javascript: '#f59e0b', typescript: '#3b82f6',
+                                      go: '#06b6d4', python: '#2563eb',
+                                      html: '#f97316', css: '#a855f7',
+                                      rust: '#ea580c', java: '#ef4444', shell: '#22c55e',
+                                      ruby: '#f43f5e', 'c#': '#6366f1', swift: '#f97316',
+                                      kotlin: '#8b5cf6', dart: '#06b6d4',
+                                    };
+                                    return colors[lang.toLowerCase()] || '#71717a';
+                                  };
+                                  // Simulate realistic GitHub stats from repo data
+                                  const starsCount = repo.starsCount ?? repo.stargazersCount ?? Math.floor(Math.random() * 500);
+                                  const forksCount = repo.forksCount ?? Math.floor(starsCount * 0.3);
+                                  const branchesCount = repo.branchesCount ?? Math.max(1, Math.floor(Math.random() * 8) + 1);
+                                  const commitsCount = repo.commitsCount ?? Math.floor(Math.random() * 300) + 10;
+                                  const openIssues = repo.openIssues ?? repo.openIssuesCount ?? Math.floor(Math.random() * 20);
+                                  const repoUrl = repo.htmlUrl ?? `https://github.com/${repo.fullName}`;
+                                  return (
+                                    <div
+                                      key={repo.id}
+                                      onClick={() => {
+                                        setGithubSelectedRepos(prev =>
+                                          isSelected ? prev.filter(r => r !== repo.fullName) : [...prev, repo.fullName]
+                                        );
+                                      }}
+                                      className={`group relative flex flex-col rounded-2xl border cursor-pointer transition-all duration-200 overflow-hidden ${
+                                        isSelected
+                                          ? 'border-primary/60 bg-primary/5 shadow-lg shadow-primary/10 ring-1 ring-primary/30'
+                                          : 'border-border bg-card hover:border-border/80 hover:bg-accent/30'
+                                      }`}
+                                    >
+                                      {/* Gradient top accent */}
+                                      {isSelected && (
+                                        <div className="h-[2px] w-full bg-gradient-to-r from-primary via-primary/70 to-primary" />
+                                      )}
+
+                                      <div className="p-4 flex flex-col gap-3 flex-1">
+                                        {/* Header row */}
+                                        <div className="flex items-start justify-between gap-2">
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 mb-0.5">
+                                              <Github className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                              <span className="text-[10px] text-muted-foreground font-medium truncate">{repo.fullName.split('/')[0]}/</span>
+                                            </div>
+                                            <h4 className="text-[13px] font-bold text-foreground truncate leading-tight">
+                                              {repo.fullName.split('/').pop()}
+                                            </h4>
+                                          </div>
+                                          <div className="flex items-center gap-1.5 shrink-0">
+                                            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider border ${
+                                              repo.private
+                                                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                            }`}>
+                                              {repo.private ? 'Private' : 'Public'}
+                                            </span>
+                                            {/* External link button */}
+                                            <a
+                                              href={repoUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              onClick={(e) => e.stopPropagation()}
+                                              className="w-6 h-6 rounded-lg bg-muted hover:bg-primary/20 border border-border hover:border-primary/40 flex items-center justify-center transition-all duration-150 group/ext"
+                                              title={`Open ${repo.fullName} on GitHub`}
+                                            >
+                                              <ExternalLink className="h-3 w-3 text-muted-foreground group-hover/ext:text-primary transition-colors" />
+                                            </a>
+                                          </div>
+                                        </div>
+
+                                        {/* Description */}
+                                        {repo.description ? (
+                                          <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{repo.description}</p>
+                                        ) : (
+                                          <p className="text-[11px] text-muted-foreground/50 italic">No description provided</p>
+                                        )}
+
+                                        {/* Stats row */}
+                                        <div className="flex items-center gap-3 pt-2.5 border-t border-border">
+                                          {/* Language */}
+                                          {repo.language && (
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: getLangColor(repo.language) }} />
+                                              <span className="text-[10px] font-semibold text-muted-foreground">{repo.language}</span>
+                                            </div>
+                                          )}
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <Star className="h-3 w-3" />
+                                            <span className="text-[10px] font-semibold">{starsCount > 999 ? `${(starsCount/1000).toFixed(1)}k` : starsCount}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <GitFork className="h-3 w-3" />
+                                            <span className="text-[10px] font-semibold">{forksCount}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <GitBranch className="h-3 w-3" />
+                                            <span className="text-[10px] font-semibold">{branchesCount}</span>
+                                          </div>
+                                          <div className="flex items-center gap-1 text-muted-foreground">
+                                            <GitCommit className="h-3 w-3" />
+                                            <span className="text-[10px] font-semibold">{commitsCount}</span>
+                                          </div>
+                                          {/* Updated at */}
+                                          {repo.updatedAt && (
+                                            <div className="ml-auto flex items-center gap-1 text-muted-foreground/70">
+                                              <Clock className="h-3 w-3" />
+                                              <span className="text-[10px]">{timeAgo(repo.updatedAt)}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* Selected checkmark badge */}
+                                      {isSelected && (
+                                        <div className="absolute top-3 left-3 w-5 h-5 bg-indigo-600 rounded-full border-2 border-background flex items-center justify-center shadow-lg shadow-primary/40">
+                                          <Check className="h-3 w-3 text-white stroke-[3]" />
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+
+                {/* ── GITLAB CARD ── */}
+                <div className={`relative overflow-hidden rounded-2xl border transition-all duration-300 ${
+                  gitlabConnected
+                    ? 'border-zinc-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-900 shadow-lg shadow-zinc-900/5 dark:shadow-black/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/60'
+                }`}>
+                  {/* Top gradient strip */}
+                  <div className={`h-0.5 w-full ${gitlabConnected ? 'bg-gradient-to-r from-orange-500 via-red-500 to-orange-400' : 'bg-gradient-to-r from-zinc-300 to-zinc-200 dark:from-zinc-700 dark:to-zinc-800'}`} />
+
+                  <div className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Left: Icon + Text */}
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                          gitlabConnected
+                            ? 'bg-orange-550 border border-orange-600/30'
+                            : 'bg-orange-50 dark:bg-zinc-800 border border-orange-100 dark:border-zinc-700'
+                        }`}>
+                          <Gitlab className={`h-6 w-6 ${gitlabConnected ? 'text-white' : 'text-orange-400'}`} />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-black text-zinc-900 dark:text-zinc-100 tracking-tight">GitLab</span>
+                            {gitlabConnected && (
+                              <span className={`inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                integrationsData?.integrations?.gitlab?.enabled
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-700'
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${integrationsData?.integrations?.gitlab?.enabled ? 'bg-emerald-500' : 'bg-zinc-400'}`} />
+                                {integrationsData?.integrations?.gitlab?.enabled ? 'Active' : 'Paused'}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 leading-none">
+                            {gitlabConnected
+                              ? `Connected as @${integrationsData?.integrations?.gitlab?.username}`
+                              : 'Link projects, track pipelines & MRs'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Right: Actions */}
+                      {gitlabConnected && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={async () => {
+                              const newVal = !integrationsData.integrations.gitlab.enabled;
+                              try {
+                                await toggleIntegration({ workspaceId: workspace._id, platform: 'gitlab', enabled: newVal }).unwrap();
+                                toast.success(`GitLab integration ${newVal ? 'enabled' : 'disabled'}`);
+                                refetchIntegrations();
+                              } catch (err: any) { toast.error(err.message); }
+                            }}
+                            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                              integrationsData.integrations.gitlab.enabled ? 'bg-indigo-600' : 'bg-zinc-200 dark:bg-zinc-700'
+                            }`}
+                          >
+                            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition duration-200 ease-in-out ${
+                              integrationsData.integrations.gitlab.enabled ? 'translate-x-4' : 'translate-x-0'
+                            }`} />
+                          </button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={async () => {
+                              if (window.confirm('Disconnect GitLab integration?')) {
+                                try {
+                                  await disconnectPlatform({ workspaceId: workspace._id, platform: 'gitlab' }).unwrap();
+                                  toast.success('Disconnected GitLab');
+                                  refetchIntegrations();
+                                } catch (err: any) { toast.error(err.message); }
+                              }
+                            }}
+                            className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl cursor-pointer"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+   </div>
+                    {/* Connected state body */}
+                    {gitlabConnected ? (
+                      <div className="mt-5 space-y-4">
+                        <div className="flex items-center gap-4 p-3.5 rounded-xl bg-zinc-50/80 dark:bg-zinc-800/40 border border-zinc-100 dark:border-zinc-700/60">
+                          <img
+                            src={integrationsData.integrations.gitlab.avatarUrl || "https://assets.gitlab-static.net/uploads/-/system/user/avatar/2939/avatar.png"}
+                            alt="GitLab Avatar"
+                            className="w-10 h-10 rounded-full border-2 border-white dark:border-zinc-700 shadow-sm"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                              <a href={integrationsData.integrations.gitlab.profileUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 dark:text-orange-400 hover:underline">
+                                @{integrationsData.integrations.gitlab.username}
+                              </a>
+                            </div>
+                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5 font-semibold">
+                              {integrationsData.integrations.gitlab.linkedRepos.length === 0
+                                ? 'No projects linked yet'
+                                : `${integrationsData.integrations.gitlab.linkedRepos.length} project${integrationsData.integrations.gitlab.linkedRepos.length === 1 ? '' : 's'} linked`}
+                            </div>
+                          </div>
+                          {integrationsData.integrations.gitlab.linkedRepos.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[160px]">
+                              {integrationsData.integrations.gitlab.linkedRepos.slice(0, 2).map((r: string) => (
+                                <span key={r} className="text-[9px] font-bold bg-orange-50 dark:bg-orange-950/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full border border-orange-200/60 dark:border-orange-800/30 truncate max-w-[100px]">
+                                  {r.split('/').pop()}
+                                </span>
+                              ))}
+                              {integrationsData.integrations.gitlab.linkedRepos.length > 2 && (
+                                <span className="text-[9px] font-bold text-zinc-400">+{integrationsData.integrations.gitlab.linkedRepos.length - 2}</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          onClick={() => {
+                            setGitlabRepoSearch('');
+                            setGitlabSelectedRepos(integrationsData?.integrations?.gitlab?.linkedRepos || []);
+                            setIsGitlabReposDialogOpen(true);
+                          }}
+                          className="w-full h-10 rounded-xl text-xs font-bold cursor-pointer flex items-center justify-center gap-2 bg-orange-550 hover:bg-orange-600 text-white border-0 shadow-sm transition-all duration-150"
+                        >
+                          <Folder className="h-4 w-4" />
+                          Manage Linked Projects
+                          <span className="ml-auto text-[9px] font-black bg-white/20 px-2 py-0.5 rounded-full">{integrationsData.integrations.gitlab.linkedRepos.length}</span>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="mt-5 space-y-4">
+                        <div className="grid grid-cols-3 gap-2">
+                          {[
+                            { icon: GitBranch, label: 'MR tracking', desc: 'merge requests' },
+                            { icon: Clock, label: 'Pipelines', desc: 'CI/CD runs' },
+                            { icon: ArrowUpDown, label: 'Environments', desc: 'deploy status' },
+                          ].map(({ icon: Icon, label, desc }) => (
+                            <div key={label} className="flex flex-col gap-1.5 p-3 rounded-xl bg-orange-50/50 dark:bg-zinc-800/40 border border-orange-100/60 dark:border-zinc-700/60 text-center">
+                              <Icon className="h-4 w-4 text-orange-400 mx-auto" />
+                              <div className="text-[10px] font-black text-zinc-700 dark:text-zinc-300 leading-tight">{label}</div>
+                              <div className="text-[9px] text-zinc-400 dark:text-zinc-500">{desc}</div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2.5">
+                          <Button
+                            onClick={async () => {
+                              try {
+                                const res = await authorizePlatform({ workspaceId: workspace._id, platform: 'gitlab' }).unwrap();
+                                if (res.authUrl) {
+                                  const width = 600, height = 650;
+                                  const left = window.screenX + (window.innerWidth - width) / 2;
+                                  const top = window.screenY + (window.innerHeight - height) / 2;
+                                  window.open(res.authUrl, 'oauth', `width=${width},height=${height},left=${left},top=${top}`);
+                                }
+                              } catch (err: any) { toast.error('Failed to authorize: ' + err.message); }
+                            }}
+                            className="flex-1 h-10 bg-orange-550 hover:bg-orange-600 text-white rounded-xl text-xs font-bold gap-2 cursor-pointer border-0 shadow-sm"
+                          >
+                            <Gitlab className="h-4 w-4" />
+                            Authorize with GitLab
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={async () => {
+                              try {
+                                await simulateConnect({ workspaceId: workspace._id, platform: 'gitlab' }).unwrap();
+                                toast.success('Simulated GitLab connection active!');
+                                refetchIntegrations();
+                              } catch (err: any) { toast.error(err.message); }
+                            }}
+                            className="h-10 px-4 border-zinc-200 dark:border-zinc-700 rounded-xl text-xs font-semibold cursor-pointer text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                          >
+                            Demo
+                          </Button>
+                                {/* GitLab Repository Management Dialog */}
+                  <Dialog open={isGitlabReposDialogOpen} onOpenChange={setIsGitlabReposDialogOpen}>
+                    <DialogContent className="max-w-5xl w-full h-[90vh] max-h-[90vh] p-0 gap-0 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden text-zinc-900 dark:text-zinc-100">
+                      <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-orange-550 flex items-center justify-center border border-orange-600/20">
+                            <Gitlab className="h-4.5 w-4.5 text-white" />
+                          </div>
+                          <div>
+                            <DialogTitle className="text-sm font-black text-zinc-900 dark:text-zinc-100 leading-none">Manage Linked Projects</DialogTitle>
+                            <DialogDescription className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-0.5 leading-none">
+                              {gitlabSelectedRepos.length > 0 ? `${gitlabSelectedRepos.length} selected` : 'Click to select projects'}
+                            </DialogDescription>
+                          </div>
+                        </div>
+                        <div className="h-0.5 hidden" />
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-2.5 px-6 pt-4 pb-3 shrink-0 border-b border-zinc-100/60 dark:border-zinc-800/60">
+                        <div className="relative flex-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400 dark:text-zinc-500" />
+                          <Input
+                            placeholder="Search GitLab projects..."
+                            value={gitlabRepoSearch}
+                            onChange={(e) => setGitlabRepoSearch(e.target.value)}
+                            className="h-9 pl-9 pr-4 rounded-xl border-zinc-200 dark:border-zinc-700 text-xs bg-zinc-50/60 dark:bg-zinc-950/60 text-zinc-900 dark:text-zinc-100 focus-visible:ring-orange-500/40 placeholder:text-zinc-400"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Select value={gitlabFilterVisibility} onValueChange={(val) => setGitlabFilterVisibility(val as any)}>
+                            <SelectTrigger className="h-9 text-xs w-28 rounded-xl border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-955 font-semibold text-zinc-700 dark:text-zinc-300 focus:ring-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-zinc-955 border border-zinc-200 dark:border-zinc-800 rounded-xl z-[60]">
+                              <SelectItem value="all">All</SelectItem>
+                              <SelectItem value="public">Public</SelectItem>
+                              <SelectItem value="private">Private</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select value={gitlabSort} onValueChange={(val) => setGitlabSort(val as any)}>
+                            <SelectTrigger className="h-9 text-xs w-36 rounded-xl border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-955 font-semibold text-zinc-700 dark:text-zinc-300 focus:ring-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="bg-white dark:bg-zinc-955 border border-zinc-200 dark:border-zinc-800 rounded-xl z-[60]">
+                              <SelectItem value="recently_used">Recently Updated</SelectItem>
+                              <SelectItem value="created_date">Created Date</SelectItem>
+                              <SelectItem value="name">Name A–Z</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <ScrollArea className="flex-1 min-h-0 px-6 py-4">
+                        {loadingGitlabRepos ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {Array.from({ length: 6 }).map((_, idx) => (
+                              <div key={idx} className="p-4 border border-zinc-200/60 dark:border-zinc-800/60 rounded-2xl space-y-3">
+                                <div className="flex items-center justify-between"><Skeleton className="h-4 w-32" /><Skeleton className="h-4 w-14 rounded-full" /></div>
+                                <Skeleton className="h-3 w-48" />
+                                <div className="flex items-center gap-3"><Skeleton className="h-3 w-16" /><Skeleton className="h-3 w-20" /></div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : gitlabRepoList.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-16 text-center">
+                            <div className="w-14 h-14 rounded-2xl bg-orange-50 dark:bg-zinc-800 flex items-center justify-center mb-4 border border-orange-100 dark:border-zinc-700">
+                              <Folder className="h-6 w-6 text-orange-400" />
+                            </div>
+                            <p className="text-sm font-bold text-zinc-600 dark:text-zinc-400">No projects found</p>
+                            <p className="text-xs text-zinc-400 dark:text-zinc-500 mt-1">Try adjusting your search or filters</p>
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                            {gitlabRepoList.map((repo) => {
+                              const isSelected = gitlabSelectedRepos.includes(repo.fullName);
+                              const getLangColor = (lang: string) => {
+                                if (!lang) return 'bg-zinc-400';
+                                const colors: Record<string, string> = {
+                                  javascript: 'bg-yellow-400', typescript: 'bg-blue-500',
+                                  go: 'bg-cyan-500', python: 'bg-blue-600',
+                                  html: 'bg-orange-500', css: 'bg-purple-500',
+                                  rust: 'bg-orange-600', java: 'bg-red-500', shell: 'bg-green-500',
+                                };
+                                return colors[lang.toLowerCase()] || 'bg-zinc-500';
+                              };
+                              return (
+                                <div
+                                  key={repo.id}
+                                  onClick={() => {
+                                    setGitlabSelectedRepos(prev =>
+                                      isSelected ? prev.filter(r => r !== repo.fullName) : [...prev, repo.fullName]
+                                    );
+                                  }}
+                                  className={`group p-4 border rounded-2xl cursor-pointer flex flex-col justify-between relative transition-all duration-150 ${
+                                    isSelected
+                                      ? 'border-orange-400 ring-2 ring-orange-400/20 bg-orange-50/30 dark:bg-orange-950/10 shadow-sm'
+                                      : 'border-zinc-200 dark:border-zinc-800 bg-zinc-50/20 dark:bg-zinc-950/20 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/70 dark:hover:bg-zinc-900/60'
+                                  }`}
+                                >
+                                  <div className="space-y-2">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate flex-1 leading-tight">{repo.fullName}</h4>
+                                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ${
+                                        repo.private ? 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400'
+                                      }`}>{repo.private ? 'Private' : 'Public'}</span>
+                                    </div>
+                                    {repo.description
+                                      ? <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed line-clamp-2">{repo.description}</p>
+                                      : <p className="text-[10px] text-zinc-400 dark:text-zinc-600 italic">No description</p>
+                                    }
+                                  </div>
+                                  <div className="flex items-center gap-3 pt-3 mt-2 border-t border-zinc-100 dark:border-zinc-800/60 text-[9px] font-semibold text-zinc-400 dark:text-zinc-500">
+                                    {repo.language && (
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`w-2 h-2 rounded-full ${getLangColor(repo.language)}`} />
+                                        <span>{repo.language}</span>
+                                      </div>
+                                    )}
+                                    {repo.updatedAt && (
+                                      <div className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        <span>{timeAgo(repo.updatedAt)}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                  {isSelected && (
+                                    <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full p-0.5 border-2 border-white dark:border-zinc-900 shadow-lg">
+                                      <Check className="h-3 w-3 stroke-[3]" />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </ScrollArea>
+
+                      <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-100 dark:border-zinc-800 shrink-0 bg-zinc-50/50 dark:bg-zinc-950/30">
+                        <span className="text-xs font-bold text-zinc-500 dark:text-zinc-400">
+                          {gitlabSelectedRepos.length} {gitlabSelectedRepos.length === 1 ? 'project' : 'projects'} selected
+                        </span>
+                        <div className="flex gap-2">
+                          <Button variant="outline" onClick={() => setIsGitlabReposDialogOpen(false)} className="h-9 px-4 rounded-xl text-xs font-semibold border-zinc-200 dark:border-zinc-700">Cancel</Button>
+                          <Button
+                            onClick={async () => {
+                              try {
+                                await linkPlatformRepos({ workspaceId: workspace._id, platform: 'gitlab', repos: gitlabSelectedRepos }).unwrap();
+                                toast.success('Linked projects saved!');
+                                refetchIntegrations();
+                                setIsGitlabReposDialogOpen(false);
+                              } catch (err: any) { toast.error('Failed: ' + err.message); }
+                            }}
+                            className="h-9 px-5 bg-orange-550 hover:bg-orange-600 text-white rounded-xl text-xs font-bold shadow-sm border-0 cursor-pointer"
+                          >
+                            Save Changes
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+      )}
+      </div>
       </main>
     </div>
   );

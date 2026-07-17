@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useConfirm } from "@/context/ConfirmContext";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -383,19 +383,28 @@ export function TaskCard({
         {item.title}
       </h4>
 
-      {/* Description */}
-      {item.description && (
-        <p
-          className="
-            text-xs
-            text-muted-foreground
-            line-clamp-2
-            mb-3
-          "
-        >
-          {item.description}
-        </p>
-      )}
+      {/* Description — strip markdown so the card preview is clean plain text */}
+      {item.description && (() => {
+        const plain = item.description
+          .replace(/```[\s\S]*?```/g, '')
+          .replace(/`[^`]*`/g, '')
+          .replace(/#{1,6}\s+/g, '')
+          .replace(/\*\*([^*]+)\*\*/g, '$1')
+          .replace(/\*([^*]+)\*/g, '$1')
+          .replace(/__([^_]+)__/g, '$1')
+          .replace(/_([^_]+)_/g, '$1')
+          .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+          .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+          .replace(/^[-*+>]\s+/gm, '')
+          .replace(/\n{2,}/g, ' ')
+          .trim();
+        if (!plain) return null;
+        return (
+          <p className="text-xs text-muted-foreground line-clamp-2 mb-3">
+            {plain}
+          </p>
+        );
+      })()}
 
       {/* Footer Row */}
       <div className="flex items-center justify-between">

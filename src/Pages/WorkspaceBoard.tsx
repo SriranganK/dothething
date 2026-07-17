@@ -21,6 +21,11 @@ import {
   AlertCircle,
   Calendar,
   Sliders,
+  Sparkles,
+  Send,
+  Loader2,
+  HelpCircle,
+  BrainCircuit,
 } from "lucide-react";
 import { PriorityIndicator } from "@/components/ui/priority-indicator";
 import {
@@ -72,7 +77,11 @@ import {
   useDeleteItemMutation,
   useGetWorkspaceMembersQuery,
   backendApi,
+  useGenerateAIColumnsMutation,
+  useBoardChatMutation,
+  useGenerateTaskFromStoryMutation,
 } from "@/store/services/api";
+import { toast } from "sonner";
 import type {
   ColumnType,
   ItemType,
@@ -359,6 +368,75 @@ function WorkspaceBoardContent({
   const [createItem, { isLoading: isCreatingItem }] = useCreateItemMutation();
   const [updateItem, { isLoading: isUpdatingItem }] = useUpdateItemMutation();
   const [deleteItem, { isLoading: isDeletingItem }] = useDeleteItemMutation();
+
+  // AI State and handlers
+  const [generateAIColumns, { isLoading: isGeneratingColumns }] = useGenerateAIColumnsMutation();
+
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
+    { sender: 'ai', text: `Hi! I am your AI assistant for board "${board.name}". Ask me about task progress, blockers, priorities, or what to build next!` }
+  ]);
+  const [boardChat, { isLoading: isChatting }] = useBoardChatMutation();
+
+  const [aiTaskMode, setAiTaskMode] = useState(false);
+  const [quickAddStory, setQuickAddStory] = useState("");
+  const [generateTaskFromStory, { isLoading: isGeneratingTask }] = useGenerateTaskFromStoryMutation();
+
+  const handleGenerateColumnsWithPrompt = async (promptText: string) => {
+    try {
+      const res = await generateAIColumns({
+        boardId,
+        prompt: promptText.trim()
+      }).unwrap();
+      if (res.success) {
+        toast.success("Columns updated successfully!");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to generate columns");
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatMessage.trim()) return;
+    const userMsg = chatMessage.trim();
+    setChatHistory(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setChatMessage("");
+
+    try {
+      const res = await boardChat({ boardId, message: userMsg }).unwrap();
+      if (res.success && res.reply) {
+        setChatHistory(prev => [...prev, { sender: 'ai', text: res.reply }]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setChatHistory(prev => [...prev, { sender: 'ai', text: "Sorry, I had trouble processing your query. Please try again." }]);
+    }
+  };
+
+  const handleGenerateTaskFromStory = async () => {
+    if (!quickAddTitle.trim() || !quickAddStory.trim()) return;
+    const firstColId = [...board.columns].sort((a, b) => a.order - b.order)[0].id;
+    try {
+      const res = await generateTaskFromStory({
+        boardId: board._id,
+        columnId: firstColId,
+        title: quickAddTitle.trim(),
+        story: quickAddStory.trim()
+      }).unwrap();
+      if (res.success && res.item) {
+        toast.success("Task created and populated with AI!");
+        setQuickAddTitle("");
+        setQuickAddStory("");
+        setShowQuickAdd(false);
+        setAiTaskMode(false);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to generate task");
+    }
+  };
 
   const isSyncing = isUpdatingBoard || isCreatingItem || isUpdatingItem || isDeletingItem;
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
@@ -801,6 +879,17 @@ function WorkspaceBoardContent({
 
             <Button
               variant="outline"
+              onClick={() => setAiChatOpen(true)}
+              className="rounded-xl border-indigo-200 dark:border-indigo-900 text-indigo-650 dark:text-indigo-400 hover:bg-indigo-50/50 cursor-pointer font-bold flex items-center gap-1.5"
+            >
+              <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
+              Ask AI
+            </Button>
+
+
+
+            <Button
+              variant="outline"
               onClick={() => setSummaryOpen(true)}
               className="rounded-xl cursor-pointer"
             >
@@ -813,7 +902,7 @@ function WorkspaceBoardContent({
                 <div className="w-[420px] rounded-2xl border border-border bg-card text-card-foreground shadow-xl p-4 animate-in fade-in zoom-in-95 duration-200 absolute right-4 top-10 z-250">
 
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-bold text-foreground flex items-center gap-2">
                         <PlusCircle className="h-5 w-5 text-primary" />
@@ -830,6 +919,8 @@ function WorkspaceBoardContent({
                       onClick={() => {
                         setShowQuickAdd(false);
                         setQuickAddTitle("");
+                        setQuickAddStory("");
+                        setAiTaskMode(false);
                       }}
                       className="h-8 w-8"
                     >
@@ -837,46 +928,125 @@ function WorkspaceBoardContent({
                     </Button>
                   </div>
 
-                  {/* Input */}
-                  <Input
-                    placeholder="What needs to be built?"
-                    value={quickAddTitle}
-                    onChange={(e) => setQuickAddTitle(e.target.value)}
-                    onKeyDown={(e) =>
-                      e.key === "Enter" && handleQuickAddTask()
-                    }
-                    className="h-11 rounded-xl text-sm"
-                    autoFocus
-                  />
-
-                  {/* Footer */}
-                  <div className="flex justify-between items-center mt-5">
-
-                    <div className="text-xs text-muted-foreground">
-                      Press <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to create
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setShowQuickAdd(false);
-                          setQuickAddTitle("");
-                        }}
-                        className="rounded-xl"
-                      >
-                        Cancel
-                      </Button>
-
-                      <Button
-                        onClick={handleQuickAddTask}
-                        className="rounded-xl bg-primary hover:bg-primary/90"
-                      >
-                        <RefreshCcw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
-                        Create Task
-                      </Button>
-                    </div>
+                  {/* Toggle Mode */}
+                  <div className="mb-4 flex justify-between items-center bg-muted/65 p-1 rounded-xl">
+                    <button
+                      onClick={() => setAiTaskMode(false)}
+                      className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-colors cursor-pointer text-center outline-none ${!aiTaskMode ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+                    >
+                      Simple Task
+                    </button>
+                    <button
+                      onClick={() => setAiTaskMode(true)}
+                      className={`flex-1 text-[11px] font-bold py-1.5 rounded-lg transition-colors cursor-pointer text-center flex items-center justify-center gap-1 outline-none ${aiTaskMode ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground'}`}
+                    >
+                      <Sparkles className="h-3 w-3 text-indigo-500 animate-pulse" />
+                      AI Generator
+                    </button>
                   </div>
+
+                  {/* Inputs and Footers depending on Mode */}
+                  {!aiTaskMode ? (
+                    <>
+                      {/* Simple Mode */}
+                      <Input
+                        placeholder="What needs to be built?"
+                        value={quickAddTitle}
+                        onChange={(e) => setQuickAddTitle(e.target.value)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && handleQuickAddTask()
+                        }
+                        className="h-11 rounded-xl text-sm"
+                        autoFocus
+                      />
+
+                      <div className="flex justify-between items-center mt-5">
+                        <div className="text-xs text-muted-foreground">
+                          Press <kbd className="px-1 py-0.5 border rounded">Enter</kbd> to create
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowQuickAdd(false);
+                              setQuickAddTitle("");
+                              setAiTaskMode(false);
+                            }}
+                            className="rounded-xl"
+                          >
+                            Cancel
+                          </Button>
+
+                          <Button
+                            onClick={handleQuickAddTask}
+                            className="rounded-xl bg-primary hover:bg-primary/90"
+                          >
+                            <RefreshCcw className={`h-4 w-4 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                            Create Task
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* AI Mode */}
+                      <Input
+                        placeholder="Task summary / title"
+                        value={quickAddTitle}
+                        onChange={(e) => setQuickAddTitle(e.target.value)}
+                        className="h-10 rounded-xl text-sm mb-2"
+                        autoFocus
+                      />
+
+                      <textarea
+                        placeholder="Describe the story requirements & details. E.g., 'Design logo, assign to Alice, set due by end of month. Checklist: draft designs, team feedback session.'"
+                        value={quickAddStory}
+                        onChange={(e) => setQuickAddStory(e.target.value)}
+                        className="w-full min-h-[100px] p-2.5 text-xs rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 placeholder:text-muted-foreground resize-none"
+                        disabled={isGeneratingTask}
+                      />
+
+                      <div className="flex justify-between items-center mt-4">
+                        <div className="text-[10px] text-muted-foreground flex items-center gap-0.5 select-none">
+                          <BrainCircuit className="h-3.5 w-3.5 text-indigo-500" />
+                          Structured Task
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              setShowQuickAdd(false);
+                              setQuickAddTitle("");
+                              setQuickAddStory("");
+                              setAiTaskMode(false);
+                            }}
+                            disabled={isGeneratingTask}
+                            className="rounded-xl h-8 text-xs cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleGenerateTaskFromStory}
+                            disabled={isGeneratingTask || !quickAddTitle.trim() || !quickAddStory.trim()}
+                            className="rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white h-8 text-xs font-semibold flex items-center gap-1 cursor-pointer"
+                          >
+                            {isGeneratingTask ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                                Generating...
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3.5 w-3.5 mr-1 animate-pulse" />
+                                Generate
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                 </div>
               ) : (
@@ -1123,6 +1293,8 @@ function WorkspaceBoardContent({
             workspaceRole={workspace!.role}
             assigneeOptions={assigneeOptions}
             emailToNameMap={emailToNameRecord}
+            generateAIColumns={handleGenerateColumnsWithPrompt}
+            isGeneratingColumns={isGeneratingColumns}
           />
         </div>
       )}
@@ -1215,6 +1387,84 @@ function WorkspaceBoardContent({
           }}
         />
       )}
+
+      {/* Board Chat Assistant Dialog */}
+      <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
+        <DialogContent className="max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden border border-border bg-card text-card-foreground shadow-2xl rounded-2xl">
+          {/* Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between select-none bg-muted/30">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-650 dark:text-indigo-400">
+                <BrainCircuit className="h-5 w-5 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-foreground">AI Board Assistant</h3>
+                <p className="text-[10px] text-muted-foreground">Ask questions about tasks, progress, or columns.</p>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setAiChatOpen(false)}
+              className="h-8 w-8 rounded-lg cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Chat Messages */}
+          <ScrollArea className="flex-1 p-4 bg-muted/10">
+            <div className="space-y-4">
+              {chatHistory.map((chat, idx) => (
+                <div
+                  key={idx}
+                  className={`flex ${chat.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs shadow-xs leading-relaxed ${
+                      chat.sender === 'user'
+                        ? 'bg-indigo-600 text-white rounded-br-none'
+                        : 'bg-card text-foreground border border-border rounded-bl-none'
+                    }`}
+                  >
+                    <p className="whitespace-pre-line font-medium">{chat.text}</p>
+                  </div>
+                </div>
+              ))}
+              {isChatting && (
+                <div className="flex justify-start">
+                  <div className="bg-card text-foreground border border-border rounded-2xl rounded-bl-none px-3.5 py-2.5 text-xs flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-550" />
+                    <span className="font-semibold text-muted-foreground animate-pulse">Analyzing board tasks...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          {/* Input Area */}
+          <div className="p-3 border-t border-border bg-card flex gap-2 items-center">
+            <Input
+              placeholder="Ask a question about this board..."
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendChatMessage()}
+              className="flex-1 h-10 rounded-xl text-xs bg-muted/30 border-muted"
+              disabled={isChatting}
+            />
+            <Button
+              onClick={handleSendChatMessage}
+              disabled={isChatting || !chatMessage.trim()}
+              size="icon"
+              className="h-10 w-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl cursor-pointer"
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
     </div>
   );
 }
