@@ -66,7 +66,7 @@ export interface ItemType {
   assignee: string;
   startDate: string | null;
   dueDate: string | null;
-  attachments: string[];
+  attachments: AttachmentType[];
   checklist: ChecklistItemType[];
   comments: CommentType[];
   order: number;
@@ -81,4 +81,23 @@ export interface ItemType {
   sprint?: string;
   reporter?: string;
   archived?: boolean;
+  linkedRepo?: string;
+  githubBranchName?: string;
+  gitlabBranchName?: string;
+}
+
+export interface AttachmentType {
+  _id: string;
+  id: string;
+  issueId: string;
+  type: 'file' | 'link';
+  fileName: string;
+  originalName: string;
+  mimeType?: string;
+  size?: number;
+  storageKey?: string;
+  publicUrl: string;
+  uploadedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }

@@ -26,7 +26,7 @@ export function ItemDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent showCloseButton={false} className="max-w-[95vw] lg:max-w-[1200px]! w-full! h-[90vh] lg:h-[85vh] p-0 border border-border/80 shadow-2xl bg-card text-card-foreground rounded-2xl overflow-hidden focus:outline-none">
+      <DialogContent showCloseButton={false} className="max-w-[95vw] lg:!max-w-[1200px] !w-full h-[95vh] lg:h-[92vh] p-0 gap-0 border border-border/80 shadow-2xl bg-card text-card-foreground rounded-2xl overflow-hidden focus:outline-none">
         <DialogTitle className="sr-only">Task Details</DialogTitle>
         <DialogDescription className="sr-only">Detailed view and actions for the selected task</DialogDescription>
         <ItemDetailContent

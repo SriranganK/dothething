@@ -213,7 +213,7 @@ export default function ItemDetailPage() {
         />
 
         {/* Issue Details Content Page Canvas */}
-        <div className="flex-1 overflow-auto bg-white min-h-0">
+        <div className="flex-1 bg-white min-h-0 flex flex-col h-full">
           <ItemDetailContent
             itemId={item._id}
             isModal={false}

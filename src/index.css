@@ -156,3 +156,157 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+/* ============================================================
+   Markdown Preview Renderer (.md-preview)
+   Used in DescriptionEditor to render AI-generated/typed markdown
+   ============================================================ */
+.md-preview {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #172b4d;
+}
+
+.md-preview h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0.75rem 0 0.4rem;
+  color: #172b4d;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.25rem;
+}
+.md-preview h2 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0.65rem 0 0.35rem;
+  color: #172b4d;
+}
+.md-preview h3,
+.md-preview h4 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+  color: #172b4d;
+}
+
+.md-preview p {
+  margin: 0.35rem 0;
+}
+
+.md-preview ul,
+.md-preview ol {
+  padding-left: 1.4rem;
+  margin: 0.35rem 0;
+}
+
+.md-preview ul {
+  list-style-type: disc;
+}
+.md-preview ol {
+  list-style-type: decimal;
+}
+
+.md-preview li {
+  margin: 0.2rem 0;
+}
+
+.md-preview strong {
+  font-weight: 600;
+}
+
+.md-preview em {
+  font-style: italic;
+}
+
+.md-preview code {
+  background: rgba(0,0,0,0.06);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  font-size: 0.82em;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.md-preview pre {
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+
+.md-preview pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.8em;
+}
+
+.md-preview a {
+  color: #0052cc;
+  text-decoration: underline;
+}
+
+.md-preview blockquote {
+  border-left: 3px solid #cbd5e1;
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: #64748b;
+  font-style: italic;
+}
+
+.md-preview table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.82em;
+  margin: 0.5rem 0;
+}
+
+.md-preview th,
+.md-preview td {
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem 0.6rem;
+  text-align: left;
+}
+
+.md-preview th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.md-preview hr {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 0.75rem 0;
+}
+
+/* Dark mode overrides */
+.dark .md-preview {
+  color: #e2e8f0;
+}
+.dark .md-preview h1,
+.dark .md-preview h2,
+.dark .md-preview h3,
+.dark .md-preview h4 {
+  color: #f1f5f9;
+}
+.dark .md-preview h1 {
+  border-bottom-color: #334155;
+}
+.dark .md-preview code {
+  background: rgba(255,255,255,0.08);
+}
+.dark .md-preview pre {
+  background: #1e293b;
+}
+.dark .md-preview a {
+  color: #60a5fa;
+}
+.dark .md-preview blockquote {
+  border-left-color: #475569;
+  color: #94a3b8;
+}
+.dark .md-preview th,
+.dark .md-preview td {
+  border-color: #334155;
+}
+.dark .md-preview th {
+  background: #1e293b;
+}

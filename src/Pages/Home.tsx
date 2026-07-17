@@ -334,7 +334,7 @@ export default function HomePage() {
     <div className="flex h-screen flex-col bg-zinc-100">
       {/* Workspace Creation Modal */}
       <WorkspaceCreateModal
-        open={isAuthenticated && showCreateModal}
+        open={showCreateModal}
         onClose={() => dispatch(setShowCreateModal(false))}
         workspaces={workspaces}
         onWorkspaceCreated={handleWorkspaceCreated}

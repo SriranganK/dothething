@@ -72,30 +72,30 @@ function FieldInput({ id, label, type = "text", placeholder, value, onChange, ic
     const isValid = value.length > 0 && !error;
     return (
         <div style={{ marginBottom: 0 }}>
-            <label htmlFor={id} style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 6 }}>{label}</label>
+            <label htmlFor={id} style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 4 }}>{label}</label>
             <div style={{ position: "relative" }}>
-                {Icon && <Icon className="absolute left-4 top-1/2 -translate-y-1/2 h-[15px] w-[15px] pointer-events-none" style={{ color: focused ? "var(--color-primary)" : "oklch(0.6 0 0)", transition: "color 0.2s" }} />}
+                {Icon && <Icon className="absolute left-3.5 top-1/2 -translate-y-1/2 h-[14px] w-[14px] pointer-events-none" style={{ color: focused ? "var(--color-primary)" : "oklch(0.6 0 0)", transition: "color 0.2s" }} />}
                 <input
                     id={id} type={type} placeholder={placeholder} value={value} autoFocus={autoFocus} autoComplete="off"
                     onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
                     onChange={(e) => onChange(e.target.value)} onKeyDown={onKeyDown}
                     style={{
-                        height: 48, width: "100%", paddingLeft: Icon ? 44 : 16, paddingRight: suffix ? 44 : isValid ? 44 : 16,
-                        borderRadius: 14, fontSize: 14, fontWeight: 500, boxSizing: "border-box",
+                        height: 38, width: "100%", paddingLeft: Icon ? 38 : 12, paddingRight: suffix ? 38 : isValid ? 38 : 12,
+                        borderRadius: 10, fontSize: 13, fontWeight: 500, boxSizing: "border-box",
                         border: `1.5px solid ${error ? "#ef4444" : focused ? "var(--color-primary)" : "var(--color-border)"}`,
                         background: "var(--color-background)", outline: "none", color: "var(--color-foreground)",
                         boxShadow: focused ? `0 0 0 3px ${error ? "rgba(239,68,68,0.1)" : "oklch(0.511 0.262 276.966 / 10%)"}` : "none",
                         transition: "border-color 0.2s, box-shadow 0.2s",
                     }}
                 />
-                {suffix && <div className="absolute right-3.5 top-1/2 -translate-y-1/2">{suffix}</div>}
+                {suffix && <div className="absolute right-3 top-1/2 -translate-y-1/2">{suffix}</div>}
                 {isValid && !suffix && (
-                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full" style={{ background: "#22c55e" }}>
-                        <Check className="h-3 w-3 text-white" strokeWidth={3} />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 h-[18px] w-[18px] flex items-center justify-center rounded-full" style={{ background: "#22c55e" }}>
+                        <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
                     </div>
                 )}
             </div>
-            {error && <p style={{ fontSize: 12, fontWeight: 500, color: "#ef4444", marginTop: 5, paddingLeft: 2 }}>{error}</p>}
+            {error && <p style={{ fontSize: 11, fontWeight: 500, color: "#ef4444", marginTop: 3, paddingLeft: 2 }}>{error}</p>}
         </div>
     );
 }
@@ -110,8 +110,8 @@ function SelectionCard({ selected, onClick, icon: IconComponent, title, desc }: 
         <button type="button" onClick={onClick}
             onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
             style={{
-                width: "100%", padding: "14px 18px", borderRadius: 14, cursor: "pointer", textAlign: "left",
-                display: "flex", alignItems: "center", gap: 14,
+                width: "100%", padding: "10px 14px", borderRadius: 10, cursor: "pointer", textAlign: "left",
+                display: "flex", alignItems: "center", gap: 10,
                 border: `2px solid ${selected ? "var(--color-primary)" : hovered ? "oklch(0.7 0 0)" : "var(--color-border)"}`,
                 background: selected ? "oklch(0.511 0.262 276.966 / 6%)" : "var(--color-background)",
                 boxShadow: selected ? "0 0 0 4px oklch(0.511 0.262 276.966 / 8%)" : "none",
@@ -119,15 +119,15 @@ function SelectionCard({ selected, onClick, icon: IconComponent, title, desc }: 
                 transition: "all 0.2s",
             }}
         >
-            <div style={{ width: 38, height: 38, borderRadius: 10, background: selected ? "oklch(0.511 0.262 276.966 / 12%)" : "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
-                <IconComponent className="h-5 w-5" style={{ color: selected ? "var(--color-primary)" : "oklch(0.55 0 0)" }} />
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: selected ? "oklch(0.511 0.262 276.966 / 12%)" : "var(--color-muted)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background 0.2s" }}>
+                <IconComponent className="h-4.5 w-4.5" style={{ color: selected ? "var(--color-primary)" : "oklch(0.55 0 0)" }} />
             </div>
             <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 14, fontWeight: 600, color: selected ? "var(--color-primary)" : "var(--color-foreground)", margin: 0 }}>{title}</p>
-                {desc && <p style={{ fontSize: 12, color: "oklch(0.6 0 0)", margin: "2px 0 0" }}>{desc}</p>}
+                <p style={{ fontSize: 13, fontWeight: 600, color: selected ? "var(--color-primary)" : "var(--color-foreground)", margin: 0 }}>{title}</p>
+                {desc && <p style={{ fontSize: 11, color: "oklch(0.6 0 0)", margin: "2px 0 0" }}>{desc}</p>}
             </div>
-            <div style={{ width: 20, height: 20, borderRadius: "50%", border: `2px solid ${selected ? "var(--color-primary)" : "var(--color-border)"}`, background: selected ? "var(--color-primary)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
-                {selected && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
+            <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selected ? "var(--color-primary)" : "var(--color-border)"}`, background: selected ? "var(--color-primary)" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
+                {selected && <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />}
             </div>
         </button>
     );
@@ -140,22 +140,22 @@ function ContinueButton({ onClick, loading = false, label = "Continue", disabled
         <button type="button" onClick={onClick} disabled={loading || disabled}
             onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
             style={{
-                width: "100%", height: 52, borderRadius: 14, border: "none",
+                width: "100%", height: 40, borderRadius: 10, border: "none",
                 background: loading || disabled ? "oklch(0.8 0 0)" : "var(--color-primary)",
-                color: "#fff", fontSize: 15, fontWeight: 700, cursor: loading || disabled ? "not-allowed" : "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8, letterSpacing: "0.01em",
-                boxShadow: loading || disabled ? "none" : hovered ? "0 6px 24px oklch(0.511 0.262 276.966 / 40%)" : "0 4px 16px oklch(0.511 0.262 276.966 / 28%)",
+                color: "#fff", fontSize: 14, fontWeight: 700, cursor: loading || disabled ? "not-allowed" : "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 6, letterSpacing: "0.01em",
+                boxShadow: loading || disabled ? "none" : hovered ? "0 6px 20px oklch(0.511 0.262 276.966 / 35%)" : "0 4px 12px oklch(0.511 0.262 276.966 / 24%)",
                 transform: hovered && !loading && !disabled ? "translateY(-1px)" : "translateY(0)",
                 transition: "background 0.2s, transform 0.15s, box-shadow 0.2s",
             }}
         >
             {loading ? (
                 <>
-                    <span style={{ width: 16, height: 16, border: "2.5px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "reg-spin 0.7s linear infinite" }} />
+                    <span style={{ width: 14, height: 14, border: "2.5px solid rgba(255,255,255,0.4)", borderTopColor: "#fff", borderRadius: "50%", display: "inline-block", animation: "reg-spin 0.7s linear infinite" }} />
                     {label}
                 </>
             ) : (
-                <>{label}<ArrowRight className="h-4 w-4" strokeWidth={2.5} /></>
+                <>{label}<ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} /></>
             )}
         </button>
     );
@@ -192,7 +192,7 @@ function BackButton({ onClick }: { onClick: () => void }) {
     return (
         <button type="button" onClick={onClick}
             onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-            style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, color: hovered ? "var(--color-foreground)" : "oklch(0.55 0 0)", fontSize: 13, fontWeight: 500, padding: "0 0 20px", transition: "color 0.15s" }}
+            style={{ background: "none", border: "none", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, color: hovered ? "var(--color-foreground)" : "oklch(0.55 0 0)", fontSize: 13, fontWeight: 500, padding: "0 0 10px", transition: "color 0.15s" }}
         >
             <ArrowLeft className="h-3.5 w-3.5" /> Back
         </button>
@@ -428,15 +428,15 @@ export default function Register() {
 
     // Styles helpers
     const phaseLabel = (label: string, cur: number, total: number) => (
-        <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>
-            {label} Â· {cur} of {total}
+        <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 4px" }}>
+            {label} · {cur} of {total}
         </p>
     );
 
     const stepHeading = (title: string, sub: string) => (
         <>
-            <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>{title}</h2>
-            <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: "0 0 24px", lineHeight: 1.5 }}>{sub}</p>
+            <h2 style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 4px", lineHeight: 1.25 }}>{title}</h2>
+            <p style={{ fontSize: 12, color: "oklch(0.55 0 0)", margin: "0 0 16px", lineHeight: 1.4 }}>{sub}</p>
         </>
     );
 
@@ -461,11 +461,11 @@ export default function Register() {
                 @keyframes reg-pop { from { opacity: 0; transform: scale(0.75); } to { opacity: 1; transform: scale(1); } }
             `}</style>
 
-            <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors" style={{ fontFamily: "'Inter Variable', system-ui, sans-serif" }}>
-                <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden">
+            <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors lg:overflow-hidden" style={{ fontFamily: "'Inter Variable', system-ui, sans-serif" }}>
+                <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden lg:h-[min(630px,90vh)]">
 
                     {/* ── Left image panel (lg+) ─────────────────────────── */}
-                    <div className="relative hidden lg:block p-3.5 bg-background">
+                    <div className="relative hidden lg:block p-3 bg-background h-full">
                         <img
                             src={loginImg}
                             alt="dotheThing workspace preview"
@@ -474,7 +474,7 @@ export default function Register() {
                     </div>
 
                     {/* ── Right form panel ───────────────────────────────── */}
-                    <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-14 relative">
+                    <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-8 h-full relative overflow-y-auto">
 
                         {/* Progress bar — sits at top of right panel */}
                         {phase !== "done" && (
@@ -498,39 +498,39 @@ export default function Register() {
                         {/* ACCOUNT */}
                         {phase === "account" && (
                             <AnimatedStep stepKey="account" direction={direction}>
-                                <div style={{ marginBottom: 24 }}>
-                                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>Step 1 of 3</p>
-                                    <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>Create your account</h2>
-                                    <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.5 }}>Takes less than a minute. No credit card needed.</p>
+                                <div style={{ marginBottom: 16 }}>
+                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 4px" }}>Step 1 of 3</p>
+                                    <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 4px", lineHeight: 1.25 }}>Create your account</h2>
+                                    <p style={{ fontSize: 12, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.4 }}>Takes less than a minute. No credit card needed.</p>
                                 </div>
 
                                 {globalError && (
-                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{globalError}</div>
+                                    <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 12, fontWeight: 500, marginBottom: 12 }}>{globalError}</div>
                                 )}
 
-                                <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                                     <FieldInput id="name" label="Full name" placeholder="e.g. Aria Chen" value={userInfo.name} onChange={v => setField("name", v)} icon={User} error={errors.name} autoFocus onKeyDown={kEnter(handleAccountNext)} />
                                     <FieldInput id="email" label="Work email" type="email" placeholder="you@company.com" value={userInfo.email} onChange={v => setField("email", v)} icon={Mail} error={errors.email} onKeyDown={kEnter(handleAccountNext)} />
                                     <FieldInput id="password" label="Password" type={showPassword ? "text" : "password"} placeholder="Min. 8 characters" value={userInfo.password} onChange={v => setField("password", v)} icon={Lock} error={errors.password} onKeyDown={kEnter(handleAccountNext)}
-                                        suffix={<button type="button" onClick={() => setShowPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}
+                                        suffix={<button type="button" onClick={() => setShowPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button>}
                                     />
 
                                     {userInfo.password && (
-                                        <div style={{ padding: "11px 13px", borderRadius: 11, background: "var(--color-muted)", border: "1px solid var(--color-border)" }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
-                                                <span style={{ fontSize: 11, fontWeight: 600, color: "oklch(0.55 0 0)" }}>Password strength</span>
-                                                <span style={{ fontSize: 11, fontWeight: 700, color: pwStrength.color }}>{pwStrength.label}</span>
+                                        <div style={{ padding: "8px 10px", borderRadius: 10, background: "var(--color-muted)", border: "1px solid var(--color-border)" }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
+                                                <span style={{ fontSize: 10, fontWeight: 600, color: "oklch(0.55 0 0)" }}>Password strength</span>
+                                                <span style={{ fontSize: 10, fontWeight: 700, color: pwStrength.color }}>{pwStrength.label}</span>
                                             </div>
-                                            <div style={{ height: 4, borderRadius: 99, background: "var(--color-border)", overflow: "hidden" }}>
+                                            <div style={{ height: 3, borderRadius: 99, background: "var(--color-border)", overflow: "hidden" }}>
                                                 <div style={{ height: "100%", width: `${(pwStrength.score / 5) * 100}%`, background: pwStrength.color, borderRadius: 99, transition: "width 0.4s, background 0.3s" }} />
                                             </div>
-                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 8px", marginTop: 8 }}>
+                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 6px", marginTop: 6 }}>
                                                 {([["hasMinLength", "8+ characters"], ["hasUppercase", "Uppercase"], ["hasLowercase", "Lowercase"], ["hasNumber", "Number"], ["hasSpecial", "Symbol"]] as [string, string][]).map(([k, txt]) => {
                                                     const met = pwStrength.criteria[k as keyof typeof pwStrength.criteria];
                                                     return (
-                                                        <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                                                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: met ? "#22c55e" : "oklch(0.8 0 0)", transition: "background 0.3s" }} />
-                                                            <span style={{ fontSize: 11, color: met ? "oklch(0.4 0 0)" : "oklch(0.65 0 0)" }}>{txt}</span>
+                                                        <div key={k} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                                            <div style={{ width: 5, height: 5, borderRadius: "50%", background: met ? "#22c55e" : "oklch(0.8 0 0)", transition: "background 0.3s" }} />
+                                                            <span style={{ fontSize: 10, color: met ? "oklch(0.4 0 0)" : "oklch(0.65 0 0)" }}>{txt}</span>
                                                         </div>
                                                     );
                                                 })}
@@ -539,14 +539,14 @@ export default function Register() {
                                     )}
 
                                     <FieldInput id="confirmPassword" label="Confirm password" type={showConfirmPassword ? "text" : "password"} placeholder="Repeat your password" value={userInfo.confirmPassword} onChange={v => setField("confirmPassword", v)} icon={Lock} error={errors.confirmPassword} onKeyDown={kEnter(handleAccountNext)}
-                                        suffix={<button type="button" onClick={() => setShowConfirmPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>}
+                                        suffix={<button type="button" onClick={() => setShowConfirmPassword(p => !p)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0 0)", display: "flex", alignItems: "center", padding: 0 }}>{showConfirmPassword ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}</button>}
                                     />
                                 </div>
 
-                                <div style={{ marginTop: 22 }}>
+                                <div style={{ marginTop: 16 }}>
                                     <ContinueButton onClick={handleAccountNext} loading={loading} label={loading ? "Checking" : "Create Account"} />
                                 </div>
-                                <p style={{ textAlign: "center", fontSize: 13, color: "oklch(0.55 0 0)", marginTop: 16 }}>
+                                <p style={{ textAlign: "center", fontSize: 12, color: "oklch(0.55 0 0)", marginTop: 12 }}>
                                     Already have an account?{" "}
                                     <Link to="/login" style={{ color: "var(--color-primary)", fontWeight: 600, textDecoration: "none" }}>Sign in</Link>
                                 </p>
@@ -557,19 +557,19 @@ export default function Register() {
                         {phase === "verify_email" && (
                             <AnimatedStep stepKey="verify_email" direction={direction}>
                                 <BackButton onClick={() => { bk(); setPhase("account"); }} />
-                                <div style={{ marginBottom: 24 }}>
-                                    <p style={{ fontSize: 12, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 6px" }}>Step 2 of {totalSteps}</p>
-                                    <h2 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 6px", lineHeight: 1.25 }}>Verify your email</h2>
-                                    <p style={{ fontSize: 13, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.5 }}>
+                                <div style={{ marginBottom: 16 }}>
+                                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--color-primary)", letterSpacing: "0.06em", textTransform: "uppercase", margin: "0 0 4px" }}>Step 2 of {totalSteps}</p>
+                                    <h2 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.025em", color: "var(--color-foreground)", margin: "0 0 4px", lineHeight: 1.25 }}>Verify your email</h2>
+                                    <p style={{ fontSize: 12, color: "oklch(0.55 0 0)", margin: 0, lineHeight: 1.4 }}>
                                         We sent a 6-digit code to <strong style={{ color: "var(--color-foreground)" }}>{userInfo.email}</strong>.
                                     </p>
                                 </div>
 
                                 {otpError && (
-                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 16 }}>{otpError}</div>
+                                    <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 12, fontWeight: 500, marginBottom: 12 }}>{otpError}</div>
                                 )}
 
-                                <div style={{ display: "flex", flexDirection: "column", gap: 13 }}>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                                     <FieldInput 
                                         id="otpCode" 
                                         label="Verification Code" 
@@ -586,11 +586,11 @@ export default function Register() {
                                     />
                                 </div>
 
-                                <div style={{ marginTop: 22 }}>
+                                <div style={{ marginTop: 16 }}>
                                     <ContinueButton onClick={handleVerifyOTP} loading={loading} label={loading ? "Verifying..." : "Verify Code"} />
                                 </div>
 
-                                <div style={{ textAlign: "center", marginTop: 16 }}>
+                                <div style={{ textAlign: "center", marginTop: 12 }}>
                                     <button 
                                         type="button" 
                                         onClick={handleResendOTP} 
@@ -601,7 +601,7 @@ export default function Register() {
                                             cursor: otpCooldown > 0 ? "not-allowed" : "pointer", 
                                             color: otpCooldown > 0 ? "oklch(0.65 0 0)" : "var(--color-primary)", 
                                             fontWeight: 600, 
-                                            fontSize: 13, 
+                                            fontSize: 12, 
                                             textDecoration: "none" 
                                         }}
                                     >
@@ -621,7 +621,7 @@ export default function Register() {
                                     <>
                                         {stepHeading("What's your role?", "Your title is shown to teammates and helps personalise your experience.")}
                                         <FieldInput id="designation" label="Job title" placeholder="e.g. Senior Product Designer" value={userInfo.designation} onChange={v => setField("designation", v)} icon={Briefcase} autoFocus onKeyDown={kEnter(handleProfileNext)} />
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Zap} text="Your designation helps us suggest the right templates and workflows for your role." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Zap} text="Your designation helps us suggest the right templates and workflows for your role." /></div>
                                     </>
                                 )}
 
@@ -629,7 +629,7 @@ export default function Register() {
                                     <>
                                         {stepHeading("Where do you work?", "Connecting you to the right organisation context for better collaboration.")}
                                         <FieldInput id="company" label="Company name" placeholder="e.g. Acme Inc." value={userInfo.company} onChange={v => setField("company", v)} icon={Building2} autoFocus onKeyDown={kEnter(handleProfileNext)} />
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Globe} text="Your company name is visible to teammates in shared workspaces." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Globe} text="Your company name is visible to teammates in shared workspaces." /></div>
                                     </>
                                 )}
 
@@ -637,19 +637,19 @@ export default function Register() {
                                     <>
                                         {stepHeading("Which department?", "We'll suggest the best board templates for your team's workflow.")}
                                         <FieldInput id="department" label="Department" placeholder="e.g. Product, Engineering, Design" value={userInfo.department} onChange={v => setField("department", v)} icon={Briefcase} autoFocus onKeyDown={kEnter(handleProfileNext)} />
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Sparkles} text="Department info helps us pre-load workflows tailored to how your team operates." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Sparkles} text="Department info helps us pre-load workflows tailored to how your team operates." /></div>
                                     </>
                                 )}
 
                                 {PROFILE_STEPS[profileStep] === "phone" && (
                                     <>
-                                        {stepHeading("Your phone number", "Used only for account security â€” never for marketing.")}
+                                        {stepHeading("Your phone number", "Used only for account security — never for marketing.")}
                                         <FieldInput id="phone" label="Phone number" type="tel" placeholder="+1 (555) 000-0000" value={userInfo.phone} onChange={v => setField("phone", v)} icon={Phone} autoFocus onKeyDown={kEnter(handleProfileNext)} />
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Shield} text="Your number is encrypted and never shared with any third party." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Shield} text="Your number is encrypted and never shared with any third party." /></div>
                                     </>
                                 )}
 
-                                <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 4 }}>
+                                <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 3 }}>
                                     <ContinueButton onClick={handleProfileNext} loading={loading && profileStep === PROFILE_STEPS.length - 1}
                                         label={loading && profileStep === PROFILE_STEPS.length - 1 ? "Setting up" : profileStep === PROFILE_STEPS.length - 1 && isInvited ? "Finish Setup" : "Continue"} />
                                     <SkipButton onClick={() => { fw(); if (profileStep < PROFILE_STEPS.length - 1) setProfileStep(p => p + 1); else if (isInvited) handleRegister(); else { setPhase("workspace"); setWorkspaceStep(0); } }} />
@@ -657,14 +657,13 @@ export default function Register() {
                             </AnimatedStep>
                         )}
 
-                        {/* WORKSPACE */}
                         {phase === "workspace" && (
                             <AnimatedStep stepKey={`ws-${workspaceStep}`} direction={direction}>
                                 <BackButton onClick={handleWorkspaceBack} />
                                 {phaseLabel("Your workspace", workspaceStep + 1, WORKSPACE_STEPS.length)}
 
                                 {globalError && (
-                                    <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 13, fontWeight: 500, marginBottom: 14 }}>{globalError}</div>
+                                    <div style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.18)", color: "#dc2626", fontSize: 12, fontWeight: 500, marginBottom: 12 }}>{globalError}</div>
                                 )}
 
                                 {WORKSPACE_STEPS[workspaceStep] === "workspaceName" && (
@@ -677,7 +676,7 @@ export default function Register() {
                                 {WORKSPACE_STEPS[workspaceStep] === "workspaceType" && (
                                     <>
                                         {stepHeading("What kind of workspace?", "Pick the setup that best fits how you'll use this space.")}
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                                             {WORKSPACE_TYPES.map(t => <SelectionCard key={t.id} selected={workspaceInfo.type === t.id} onClick={() => setWsField("type", t.id)} title={t.title} desc={t.desc} icon={t.icon} />)}
                                         </div>
                                     </>
@@ -686,7 +685,7 @@ export default function Register() {
                                 {WORKSPACE_STEPS[workspaceStep] === "workspaceTeamSize" && (
                                     <>
                                         {stepHeading("How big is your team?", "We'll optimise your workspace layout and features for your team's size.")}
-                                        <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
                                             {TEAM_SIZES.map((s: any) => <SelectionCard key={s.id} selected={workspaceInfo.teamSize === s.id} onClick={() => setWsField("teamSize", s.id)} title={s.label} icon={s.icon} />)}
                                         </div>
                                     </>
@@ -696,7 +695,7 @@ export default function Register() {
                                     <>
                                         {stepHeading("What's your industry?", "Helps us pre-load the best workflow templates for your business sector.")}
                                         <FieldInput id="wsIndustry" label="Industry" placeholder="e.g. Technology, Finance, Healthcare" value={workspaceInfo.industry} onChange={v => setWsField("industry", v)} icon={Briefcase} error={errors.workspaceIndustry} autoFocus onKeyDown={kEnter(handleWorkspaceNext)} />
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Sparkles} text="Industry-specific templates save hours of setup â€” we've done the heavy lifting." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Sparkles} text="Industry-specific templates save hours of setup — we've done the heavy lifting." /></div>
                                     </>
                                 )}
 
@@ -704,25 +703,25 @@ export default function Register() {
                                     <>
                                         {stepHeading("Bring your team along", "Invite colleagues now and start collaborating immediately.")}
                                         <div>
-                                            <label htmlFor="wsInvites" style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 6 }}>Email addresses</label>
+                                            <label htmlFor="wsInvites" style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--color-foreground)", opacity: 0.65, letterSpacing: "0.025em", marginBottom: 4 }}>Email addresses</label>
                                             <div style={{ position: "relative" }}>
-                                                <Users className="h-4 w-4 absolute" style={{ left: 16, top: 14, color: "oklch(0.6 0 0)" }} />
-                                                <textarea id="wsInvites" placeholder={"colleague@company.com\nanother@team.com"} rows={4} value={workspaceInfo.invitedMembers}
+                                                <Users className="h-3.5 w-3.5 absolute" style={{ left: 14, top: 12, color: "oklch(0.6 0 0)" }} />
+                                                <textarea id="wsInvites" placeholder={"colleague@company.com\nanother@team.com"} rows={3} value={workspaceInfo.invitedMembers}
                                                     onChange={e => setWsField("invitedMembers", e.target.value)}
-                                                    style={{ width: "100%", paddingLeft: 44, paddingRight: 16, paddingTop: 12, paddingBottom: 12, borderRadius: 14, fontSize: 14, fontWeight: 500, border: "1.5px solid var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)", outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.6, boxSizing: "border-box", transition: "border-color 0.2s, box-shadow 0.2s" }}
+                                                    style={{ width: "100%", paddingLeft: 38, paddingRight: 12, paddingTop: 8, paddingBottom: 8, borderRadius: 10, fontSize: 13, fontWeight: 500, border: "1.5px solid var(--color-border)", background: "var(--color-background)", color: "var(--color-foreground)", outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box", transition: "border-color 0.2s, box-shadow 0.2s" }}
                                                     onFocus={e => { e.target.style.borderColor = "var(--color-primary)"; e.target.style.boxShadow = "0 0 0 3px oklch(0.511 0.262 276.966 / 10%)"; }}
                                                     onBlur={e => { e.target.style.borderColor = "var(--color-border)"; e.target.style.boxShadow = "none"; }}
                                                 />
                                             </div>
-                                            <p style={{ fontSize: 11, color: "oklch(0.6 0 0)", marginTop: 5, paddingLeft: 2 }}>Separate multiple emails with commas or new lines</p>
+                                            <p style={{ fontSize: 10, color: "oklch(0.6 0 0)", marginTop: 4, paddingLeft: 2 }}>Separate multiple emails with commas or new lines</p>
                                         </div>
-                                        <div style={{ marginTop: 14 }}><TipCard icon={Users} text="Teams that invite colleagues early see 4Ã— faster project momentum. You're off to a great start." /></div>
+                                        <div style={{ marginTop: 10 }}><TipCard icon={Users} text="Teams that invite colleagues early see 4× faster project momentum. You're off to a great start." /></div>
                                     </>
                                 )}
 
-                                <div style={{ marginTop: 22, display: "flex", flexDirection: "column", gap: 4 }}>
+                                <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 3 }}>
                                     <ContinueButton onClick={handleWorkspaceNext} loading={loading}
-                                        label={loading ? "Creating workspace" : workspaceStep === WORKSPACE_STEPS.length - 1 ? "Launch Workspace ðŸš€" : "Continue"} />
+                                        label={loading ? "Creating workspace" : workspaceStep === WORKSPACE_STEPS.length - 1 ? "Launch Workspace 🚀" : "Continue"} />
                                     {WORKSPACE_STEPS[workspaceStep] === "workspaceInviteMembers" && (
                                         <SkipButton onClick={() => { fw(); handleRegister(); }} />
                                     )}
@@ -732,7 +731,7 @@ export default function Register() {
                     </div>
 
                     {phase !== "done" && (
-                        <p style={{ textAlign: "center", fontSize: 12, color: "oklch(0.65 0 0)", marginTop: 18, lineHeight: 1.5 }}>
+                        <p style={{ textAlign: "center", fontSize: 11, color: "oklch(0.65 0 0)", marginTop: 12, lineHeight: 1.4 }}>
                             By continuing, you agree to our{" "}
                             <a href="#" style={{ color: "var(--color-primary)", textDecoration: "none" }}>Terms of Service</a>{" "}and{" "}
                             <a href="#" style={{ color: "var(--color-primary)", textDecoration: "none" }}>Privacy Policy</a>

@@ -190,11 +190,11 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors">
-      <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden">
+    <div className="min-h-screen bg-muted/50 flex items-center justify-center p-4 sm:p-6 transition-colors lg:overflow-hidden">
+      <div className="w-full max-w-5xl grid lg:grid-cols-2 bg-card text-card-foreground rounded-3xl shadow-xl border border-border/60 overflow-hidden lg:h-[min(600px,85vh)]">
 
         {/* Left Side Branding Image */}
-        <div className="relative hidden lg:block p-3.5 bg-background">
+        <div className="relative hidden lg:block p-3 bg-background h-full">
           <img
             src={loginImg}
             alt="Login Visual"
@@ -203,41 +203,41 @@ export function Login() {
         </div>
 
         {/* Right Side Card Forms */}
-        <div className="flex items-center justify-center p-6 sm:p-10 lg:p-14">
-          <Card className="w-full max-w-md p-4 border-0 shadow-none bg-transparent">
+        <div className="flex flex-col justify-center p-6 sm:p-10 lg:p-8 h-full overflow-y-auto">
+          <div className="w-full max-w-md mx-auto">
 
             {/* MFA VIEW SCREEN */}
             {showMFA ? (
               <>
-                <CardHeader className="space-y-3 px-0 pb-6 text-left">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 border border-indigo-150 flex items-center justify-center text-primary mb-1 animate-pulse">
-                    <KeyRound className="h-5 w-5" />
+                <div className="space-y-2 pb-4 text-left">
+                  <div className="w-9 h-9 rounded-xl bg-primary/10 border border-indigo-150 flex items-center justify-center text-primary mb-1 animate-pulse">
+                    <KeyRound className="h-4.5 w-4.5" />
                   </div>
-                  <CardTitle className="text-2xl font-black tracking-tight text-foreground">
+                  <h2 className="text-xl font-black tracking-tight text-foreground">
                     Two-Factor Verification
-                  </CardTitle>
-                  <CardDescription className="text-zinc-450 text-xs">
+                  </h2>
+                  <p className="text-zinc-450 text-[11px] leading-snug">
                     Multi-factor login is enforced for this account. Enter the 6-digit verification code below.
-                  </CardDescription>
-                </CardHeader>
+                  </p>
+                </div>
 
-                <CardContent className="px-0">
-                  <form className="space-y-4">
+                <div>
+                  <form className="space-y-3">
                     {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 text-red-650 rounded-xl text-xs font-semibold flex items-center gap-2">
+                      <div className="p-2.5 bg-red-50 border border-red-200 text-red-650 rounded-xl text-xs font-semibold flex items-center gap-2">
                         <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
                         <span>{error}</span>
                       </div>
                     )}
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="mfaCode" className="text-xs font-bold text-foreground/90">Verification Code</Label>
                       <Input
                         id="mfaCode"
                         type="text"
                         placeholder="Enter 6-digit code (e.g. 123456)"
                         maxLength={6}
-                        className="h-10.5 rounded-xl border-border text-xs font-semibold focus-visible:ring-ring text-center tracking-[0.25em]"
+                        className="h-9.5 rounded-xl border-border text-xs font-semibold focus-visible:ring-ring text-center tracking-[0.25em]"
                         value={mfaCode}
                         onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
                         required
@@ -246,7 +246,7 @@ export function Login() {
                     </div>
 
                     <Button
-                      className="w-full h-10.5 rounded-xl text-xs font-bold mt-2 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                      className="w-full h-9.5 rounded-xl text-xs font-bold mt-2 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
                       onClick={handleVerifyMFA}
                       disabled={loading}
                     >
@@ -262,7 +262,7 @@ export function Login() {
 
                     <button
                       type="button"
-                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-zinc-450 hover:text-muted-foreground pt-2 cursor-pointer transition-colors"
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-bold text-zinc-450 hover:text-muted-foreground pt-1.5 cursor-pointer transition-colors"
                       onClick={() => {
                         setShowMFA(false);
                         setMfaCode("");
@@ -273,31 +273,31 @@ export function Login() {
                       Back to Account Login
                     </button>
                   </form>
-                </CardContent>
+                </div>
               </>
             ) : (
               /* REGULAR ACCOUNT LOGIN SCREEN */
               <>
-                <CardHeader className="space-y-3 px-0 pb-6 text-left">
-                  <CardTitle className="text-3xl font-black tracking-tight text-foreground">
+                <div className="space-y-1.5 pb-4 text-left">
+                  <h2 className="text-2xl font-black tracking-tight text-foreground">
                     Welcome Back
-                  </CardTitle>
-                  <CardDescription className="text-zinc-450 text-xs">
+                  </h2>
+                  <p className="text-zinc-450 text-[11px] leading-snug">
                     Log in to collaborate on task boards and milestones
-                  </CardDescription>
-                </CardHeader>
+                  </p>
+                </div>
 
-                <CardContent className="px-0">
-                  <form className="space-y-4">
+                <div>
+                  <form className="space-y-3">
                     {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 text-red-650 rounded-xl text-xs font-semibold flex items-center gap-2">
+                      <div className="p-2.5 bg-red-50 border border-red-200 text-red-650 rounded-xl text-xs font-semibold flex items-center gap-2">
                         <ShieldAlert className="h-4 w-4 shrink-0 text-red-500" />
                         <span>{error}</span>
                       </div>
                     )}
 
                     {/* Email Input */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1">
                       <Label htmlFor="email" className="text-xs font-bold text-foreground/90">Email Address</Label>
                       <div className="relative">
                         <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -305,7 +305,7 @@ export function Login() {
                           id="email"
                           type="email"
                           placeholder="you@company.com"
-                          className="h-10.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
+                          className="h-9.5 pl-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
                           value={userInfo.email}
                           onChange={(e) => handleChange(e, "email")}
                           onBlur={(e) => handleCheckSSO(e.target.value)}
@@ -316,7 +316,7 @@ export function Login() {
 
                     {/* Password Input (Hidden if SSO is required) */}
                     {!ssoRequired && (
-                      <div className="space-y-1.5">
+                      <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="password" className="text-xs font-bold text-foreground/90">Password</Label>
                           <Link to="/forgot-password" className="text-xs font-bold text-indigo-605 hover:underline">
@@ -329,7 +329,7 @@ export function Login() {
                              id="password"
                              type={showPassword ? "text" : "password"}
                              placeholder="Enter account password"
-                             className="h-10.5 pl-10 pr-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
+                             className="h-9.5 pl-10 pr-10 rounded-xl border-border text-xs focus-visible:ring-ring font-medium"
                              value={userInfo.password}
                              onChange={(e) => handleChange(e, "password")}
                              required
@@ -347,7 +347,7 @@ export function Login() {
 
                     {/* SSO Redirection indicator */}
                     {ssoRequired && (
-                      <div className="p-3.5 bg-primary/10/50 border border-primary/25/40 rounded-xl text-xs text-primary font-semibold leading-relaxed">
+                      <div className="p-3 bg-primary/10/50 border border-primary/25/40 rounded-xl text-xs text-primary font-semibold leading-relaxed">
                         Single Sign-On (SSO) is enforced for this email domain. You will authenticate via your identity provider.
                       </div>
                     )}
@@ -355,7 +355,7 @@ export function Login() {
                     {/* Login Action buttons */}
                     {ssoRequired ? (
                       <Button
-                        className="w-full h-10.5 rounded-xl text-xs font-bold mt-2 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                        className="w-full h-9.5 rounded-xl text-xs font-bold mt-1 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
                         onClick={handleSSOLogin}
                         disabled={loading}
                       >
@@ -364,7 +364,7 @@ export function Login() {
                       </Button>
                     ) : (
                       <Button
-                        className="w-full h-10.5 rounded-xl text-xs font-bold mt-2 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs"
+                        className="w-full h-9.5 rounded-xl text-xs font-bold mt-1 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs"
                         onClick={handleLogin}
                         disabled={loading}
                       >
@@ -373,7 +373,7 @@ export function Login() {
                     )}
 
                     {/* Divider */}
-                    <div className="relative flex py-2 items-center">
+                    <div className="relative flex py-1 items-center">
                       <div className="flex-grow border-t border-border"></div>
                       <span className="flex-shrink mx-3 text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Or</span>
                       <div className="flex-grow border-t border-border"></div>
@@ -383,7 +383,7 @@ export function Login() {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full h-10.5 rounded-xl text-xs font-bold border-border flex items-center justify-center gap-2 cursor-pointer hover:bg-background"
+                      className="w-full h-9.5 rounded-xl text-xs font-bold border-border flex items-center justify-center gap-2 cursor-pointer hover:bg-background"
                       onClick={handleGoogleLogin}
                       disabled={loading}
                     >
@@ -391,18 +391,18 @@ export function Login() {
                       Continue with Google SSO
                     </Button>
 
-                    <p className="text-center text-xs text-zinc-550 pt-2">
+                    <p className="text-center text-xs text-zinc-550 pt-1">
                       Don&apos;t have an account?{" "}
                       <a href="/register" className="font-bold text-primary hover:underline">
                         Register here
                       </a>
                     </p>
                   </form>
-                </CardContent>
+                </div>
               </>
             )}
 
-          </Card>
+          </div>
         </div>
 
       </div>
