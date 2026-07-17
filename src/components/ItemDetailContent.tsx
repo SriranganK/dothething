@@ -481,11 +481,109 @@ export function ItemDetailContent({
 
   // Labels state
   const [labelSearch, setLabelSearch] = useState("");
+  const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
+  const [isSuggestingMilestone, setIsSuggestingMilestone] = useState(false);
 
   const filteredLabelsForPopover = useMemo(() => {
     if (!labelSearch) return allLabels;
     return allLabels.filter((l: any) => l.name.toLowerCase().includes(labelSearch.toLowerCase()));
   }, [allLabels, labelSearch]);
+
+  // AI: generate & apply labels
+  const handleAIGenerateLabels = async () => {
+    if (!item || !workspace?._id) return;
+    setIsGeneratingLabels(true);
+    try {
+      // Auto-save live editor text first so AI gets the latest description
+      if (description.trim()) {
+        await updateItem({ id: item._id, body: { description } }).unwrap();
+      }
+      const res = await suggestTaskMeta({
+        boardId: item.board,
+        title: item.title,
+        description: description
+      }).unwrap();
+
+      const suggestedNames: string[] = res.suggestions?.labels || [];
+      if (!suggestedNames.length) {
+        toast.info("AI couldn't suggest any labels for this task.");
+        return;
+      }
+
+      // Match existing labels or create missing ones
+      const labelIds: string[] = [];
+      for (const name of suggestedNames) {
+        const existing = allLabels.find((l: any) => l.name.toLowerCase().trim() === name.toLowerCase().trim());
+        if (existing) {
+          labelIds.push(existing._id);
+        } else {
+          // Create the label in the workspace with a nice auto color
+          const colors = ['#6366f1', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          try {
+            const created = await createLabel({ workspaceId: workspace._id, name, color }).unwrap();
+            if (created.label?._id) labelIds.push(created.label._id);
+          } catch { /* skip if creation fails */ }
+        }
+      }
+
+      if (!labelIds.length) {
+        toast.error("Failed to create or find suggested labels.");
+        return;
+      }
+
+      // Merge with existing labels (no duplicates)
+      const currentIds = (item.labels || []).map((l: any) => l._id || l);
+      const merged = [...new Set([...currentIds, ...labelIds])];
+      await handleSaveField({ labels: merged });
+      toast.success(`${suggestedNames.join(', ')} — labels applied!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to generate labels");
+    } finally {
+      setIsGeneratingLabels(false);
+    }
+  };
+
+  // AI: suggest best matching milestone
+  const handleAISuggestMilestone = async () => {
+    if (!item || !milestonesData?.milestones?.length) {
+      toast.info("No milestones available in this workspace.");
+      return;
+    }
+    setIsSuggestingMilestone(true);
+    try {
+      // Auto-save live editor text first so AI gets the latest description
+      if (description.trim()) {
+        await updateItem({ id: item._id, body: { description } }).unwrap();
+      }
+      const milestoneList = milestonesData.milestones.map((m: any) => m.name).join(', ');
+      const res = await suggestTaskMeta({
+        boardId: item.board,
+        title: `${item.title}. Available milestones: ${milestoneList}. Pick the best one.`,
+        description: description
+      }).unwrap();
+
+      // Find closest matching milestone by name
+      const suggestedLabel = res.suggestions?.labels?.[0] || '';
+      const milestones: any[] = milestonesData.milestones;
+      const match = milestones.find((m: any) =>
+        suggestedLabel && m.name.toLowerCase().includes(suggestedLabel.toLowerCase())
+      ) || milestones[0];
+
+      if (match) {
+        await handleSaveField({ milestone_id: match._id } as any);
+        toast.success(`Milestone set to "${match.name}" by AI`);
+      } else {
+        toast.info("AI couldn't determine the best milestone.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to suggest milestone");
+    } finally {
+      setIsSuggestingMilestone(false);
+    }
+  };
 
   // Plus dropdown
   const [showPlusDropdown, setShowPlusDropdown] = useState(false);
@@ -2240,6 +2338,19 @@ export function ItemDetailContent({
                     ))}
                   </SelectContent>
                 </Select>
+                {/* AI pick milestone */}
+                {milestonesData?.milestones?.length > 0 && (
+                  <button
+                    onClick={handleAISuggestMilestone}
+                    disabled={isSuggestingMilestone}
+                    title="AI pick best milestone"
+                    className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/20 border border-violet-200/60 dark:border-violet-800/30 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isSuggestingMilestone
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <Sparkles className="h-3 w-3 animate-pulse" />}
+                  </button>
+                )}
               </div>
 
               {/* Labels */}
@@ -2282,21 +2393,33 @@ export function ItemDetailContent({
                       {(item.labels && item.labels.length > 0) ? "+ Add/Edit" : "+ Edit Labels"}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-60 bg-card text-card-foreground border border-border shadow-xl rounded-xl p-3 text-xs">
-                    <div className="font-bold text-foreground mb-2 select-none">Task Labels</div>
+                  <PopoverContent className="w-64 bg-card text-card-foreground border border-border shadow-xl rounded-xl p-3 text-xs">
+                    {/* Header with AI button */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-bold text-foreground text-sm">Task Labels</span>
+                      <button
+                        onClick={handleAIGenerateLabels}
+                        disabled={isGeneratingLabels}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gradient-to-r from-violet-500/10 to-indigo-500/10 text-violet-600 dark:text-violet-400 hover:from-violet-500/20 hover:to-indigo-500/20 border border-violet-300/40 dark:border-violet-700/30 cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        {isGeneratingLabels
+                          ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating...</>
+                          : <><Sparkles className="h-3 w-3 animate-pulse" /> Generate with AI</>}
+                      </button>
+                    </div>
 
                     {/* Search labels */}
                     <input
                       type="text"
-                      placeholder="Search or filter..."
+                      placeholder="Search or create..."
                       value={labelSearch}
                       onChange={(e) => setLabelSearch(e.target.value)}
-                      className="w-full border border-border rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:border-primary/50 font-semibold"
+                      className="w-full border border-border rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:border-primary/50 font-semibold text-xs bg-transparent"
                     />
 
-                    <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                    <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
                       {filteredLabelsForPopover.length === 0 ? (
-                        <div className="text-muted-foreground italic text-center py-4 select-none">No labels found</div>
+                        <div className="text-muted-foreground italic text-center py-4 select-none text-xs">No labels found</div>
                       ) : (
                         filteredLabelsForPopover.map((l: any) => {
                           const isChecked = item.labels?.some((itemL: any) => getLabelId(itemL) === l._id);
@@ -2321,7 +2444,7 @@ export function ItemDetailContent({
                                     }
                                     handleSaveField({ labels: updated });
                                   }}
-                                  className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-indigo-500 cursor-pointer"
+                                  className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-indigo-500 cursor-pointer accent-indigo-500"
                                 />
                                 <span
                                   className="w-2.5 h-2.5 rounded-full shrink-0"
@@ -2477,12 +2600,20 @@ export function ItemDetailContent({
                         <GitBranch className="h-3.5 w-3.5 text-indigo-500" />
                       </div>
                       <span className="font-black text-foreground text-xs tracking-tight">Development</span>
-                      {!isDevCollapsed && (item.githubBranchName || item.gitlabBranchName) && (
-                        <span className="hidden sm:inline-flex items-center gap-1 text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-500/20 font-mono">
-                          <GitBranch className="h-2.5 w-2.5" />
-                          {(item.githubBranchName || item.gitlabBranchName)?.split('/').slice(-1)[0]}
-                        </span>
-                      )}
+                      {/* Branch pill — show only the short segment, truncated */}
+                      {!isDevCollapsed && (item.githubBranchName || item.gitlabBranchName) && (() => {
+                        const fullBranch = item.githubBranchName || item.gitlabBranchName || '';
+                        const parts = fullBranch.split('/');
+                        const prefix = parts.length > 1 ? parts[0] : null;
+                        const shortName = parts.slice(-1)[0];
+                        return (
+                          <span className="hidden sm:inline-flex items-center gap-1 max-w-[160px] overflow-hidden text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 pl-1.5 pr-2 py-0.5 rounded-full border border-indigo-500/20 font-mono shrink-0">
+                            <GitBranch className="h-2.5 w-2.5 shrink-0" />
+                            {prefix && <span className="text-indigo-400/60 shrink-0">{prefix}/</span>}
+                            <span className="truncate">{shortName}</span>
+                          </span>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
@@ -2556,25 +2687,26 @@ export function ItemDetailContent({
                   {activeDevTab === 'overview' && (
                     <div className="space-y-4">
                       {/* Repository info */}
-                      <div className="flex items-center justify-between gap-4 bg-muted/20 border border-border/45 p-3 rounded-xl">
+                      <div className="flex items-center justify-between gap-3 bg-muted/20 border border-border/45 p-3 rounded-xl">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-500/5 flex items-center justify-center shrink-0 border border-indigo-500/10">
-                            <Terminal className="h-4 w-4 text-indigo-500" />
+                          <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center shrink-0 border border-border/40">
+                            {devPlatform === 'github' ? (
+                              <svg viewBox="0 0 24 24" className="h-4 w-4 text-white fill-current"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" /></svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" className="h-4 w-4 fill-[#FC6D26]"><path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 0 1-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 0 1 4.82 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0 1 18.6 2a.43.43 0 0 1 .58 0 .42.42 0 0 1 .11.18l2.44 7.51L23 13.45a.84.84 0 0 1-.35.94z" /></svg>
+                            )}
                           </div>
-                          <div className="min-w-0 flex flex-col">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Active Repository</span>
+                          <div className="min-w-0 flex flex-col gap-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Active Repository</span>
                             {item.linkedRepo ? (
-                              <span className="font-mono text-xs font-bold text-foreground truncate select-all">{item.linkedRepo}</span>
+                              <span className="font-mono text-xs font-semibold text-foreground truncate select-all">{item.linkedRepo}</span>
                             ) : (
                               <span className="text-xs text-muted-foreground italic">None linked</span>
                             )}
                           </div>
                         </div>
-
                         {item.linkedRepo ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                          <button
                             onClick={async () => {
                               try {
                                 await linkItemRepo({ itemId: item._id, repo: '' }).unwrap();
@@ -2582,19 +2714,19 @@ export function ItemDetailContent({
                                 refetchDev();
                               } catch (err: any) { toast.error(err.message || 'Failed to unlink'); }
                             }}
-                            className="h-7 text-[10px] font-bold text-muted-foreground hover:text-red-500 hover:bg-red-500/5 cursor-pointer rounded-lg border border-border/50"
+                            className="shrink-0 h-7 px-3 text-[10px] font-semibold text-muted-foreground hover:text-red-500 hover:bg-red-500/8 cursor-pointer rounded-lg border border-border/50 transition-colors"
                           >
                             Unlink
-                          </Button>
+                          </button>
                         ) : (
                           <Popover>
                             <PopoverTrigger asChild>
-                              <Button variant="outline" size="sm" className="h-7 px-3 text-[10px] font-bold cursor-pointer rounded-lg border-dashed border-indigo-500/30 hover:border-indigo-500 hover:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400">
-                                <Plus className="h-3 w-3 mr-1" />Link Repo
-                              </Button>
+                              <button className="shrink-0 h-7 px-3 text-[10px] font-semibold rounded-lg border border-dashed border-indigo-500/40 hover:border-indigo-500 hover:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 flex items-center gap-1 cursor-pointer transition-colors">
+                                <Plus className="h-3 w-3" />Link Repo
+                              </button>
                             </PopoverTrigger>
                             <PopoverContent align="end" className="w-64 p-2 bg-card border border-border shadow-xl rounded-xl z-[90]">
-                              <div className="text-[9px] font-black text-muted-foreground uppercase tracking-widest px-2 py-1">Select Repository</div>
+                              <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest px-2 py-1">Select Repository</div>
                               <div className="max-h-64 overflow-y-auto space-y-0.5 mt-1 pr-1">
                                 {workspaceIntegrations?.integrations?.[devPlatform]?.linkedRepos?.length ? (
                                   workspaceIntegrations.integrations[devPlatform].linkedRepos.map((r: string) => (
@@ -2621,54 +2753,57 @@ export function ItemDetailContent({
                         )}
                       </div>
 
-                      {/* Active branch info */}
-                      <div className="flex items-center justify-between gap-4 bg-muted/20 border border-border/45 p-3 rounded-xl">
+                      {/* Active Branch info */}
+                      <div className="flex items-center justify-between gap-3 bg-muted/20 border border-border/45 p-3 rounded-xl">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-indigo-500/5 flex items-center justify-center shrink-0 border border-indigo-500/10">
+                          <div className="w-8 h-8 rounded-lg bg-indigo-500/8 flex items-center justify-center shrink-0 border border-indigo-500/15">
                             <GitBranch className="h-4 w-4 text-indigo-500" />
                           </div>
-                          <div className="min-w-0 flex flex-col">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1">Active Branch</span>
-                            {item.githubBranchName || item.gitlabBranchName ? (
-                              <span className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate flex items-center gap-1">
-                                {item.githubBranchName || item.gitlabBranchName}
-                              </span>
-                            ) : (
+                          <div className="min-w-0 flex flex-col gap-0.5">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest leading-none">Active Branch</span>
+                            {item.githubBranchName || item.gitlabBranchName ? (() => {
+                              const fullBranch = item.githubBranchName || item.gitlabBranchName || '';
+                              const slashIdx = fullBranch.indexOf('/');
+                              const prefix = slashIdx !== -1 ? fullBranch.slice(0, slashIdx + 1) : null;
+                              const name = slashIdx !== -1 ? fullBranch.slice(slashIdx + 1) : fullBranch;
+                              return (
+                                <span className="font-mono text-xs font-semibold flex items-center gap-0.5 min-w-0 truncate">
+                                  {prefix && <span className="text-muted-foreground/60 shrink-0">{prefix}</span>}
+                                  <span className="text-indigo-600 dark:text-indigo-400 truncate">{name}</span>
+                                </span>
+                              );
+                            })() : (
                               <span className="text-xs text-muted-foreground italic">None active</span>
                             )}
                           </div>
                         </div>
 
                         {item.githubBranchName || item.gitlabBranchName ? (
-                          <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
                               onClick={() => {
                                 const branch = item.githubBranchName || item.gitlabBranchName || '';
                                 navigator.clipboard.writeText(`git fetch && git checkout ${branch}`);
                                 toast.success('Checkout command copied!');
                               }}
-                              className="h-7 text-[10px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-muted cursor-pointer rounded-lg border border-border/50"
+                              className="h-7 px-2.5 text-[10px] font-semibold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-muted cursor-pointer rounded-lg border border-border/50 transition-colors flex items-center gap-1"
+                              title="Copy git checkout command"
                             >
-                              Copy Cmd
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
+                              <Copy className="h-3 w-3" /> Cmd
+                            </button>
+                            <button
                               onClick={() => {
                                 navigator.clipboard.writeText(item.githubBranchName || item.gitlabBranchName || '');
                                 toast.success('Branch name copied');
                               }}
-                              className="h-7 text-[10px] font-bold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-muted cursor-pointer rounded-lg border border-border/50"
+                              className="h-7 px-2.5 text-[10px] font-semibold text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-muted cursor-pointer rounded-lg border border-border/50 transition-colors flex items-center gap-1"
+                              title="Copy branch name"
                             >
-                              Copy Name
-                            </Button>
+                              <Copy className="h-3 w-3" /> Name
+                            </button>
                           </div>
                         ) : (
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button
                             disabled={!item.linkedRepo}
                             onClick={() => {
                               const ticketKey = `${item.type.toUpperCase()}-${item._id.slice(-5).toUpperCase()}`;
@@ -2676,65 +2811,57 @@ export function ItemDetailContent({
                               setNewBranchName(`${item.type === 'Bug' ? 'bugfix' : 'feature'}/${ticketKey}-${titleSlug}`);
                               setActiveDevTab('create_branch');
                             }}
-                            className="h-7 px-3 text-[10px] font-bold cursor-pointer rounded-lg border-dashed border-indigo-500/30 hover:border-indigo-500 hover:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 disabled:opacity-50"
+                            className="shrink-0 h-7 px-3 text-[10px] font-semibold cursor-pointer rounded-lg border border-dashed border-indigo-500/40 hover:border-indigo-500 hover:bg-indigo-500/5 text-indigo-600 dark:text-indigo-400 flex items-center gap-1 transition-colors disabled:opacity-40"
                           >
-                            <Plus className="h-3 w-3 mr-1" />Create Branch
-                          </Button>
+                            <Plus className="h-3 w-3" />Create Branch
+                          </button>
                         )}
                       </div>
 
                       {/* Stats Grid */}
-                      <div className="grid grid-cols-2 gap-2.5">
-                        <button
-                          onClick={() => setActiveDevTab('branches')}
-                          className="group flex flex-col justify-between p-3 border border-border hover:border-indigo-500/30 hover:bg-indigo-500/5 rounded-xl cursor-pointer transition-all duration-150 text-left bg-muted/10"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Branches</span>
-                            <GitBranch className="h-3.5 w-3.5 text-indigo-500/50 group-hover:text-indigo-500 transition-colors" />
-                          </div>
-                          <span className="text-lg font-black text-foreground mt-1.5">{development.branches?.length || 0}</span>
-                        </button>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { id: 'branches', label: 'Branches', count: development.branches?.length || 0, icon: <GitBranch className="h-3.5 w-3.5" />, color: 'indigo' },
+                          { id: 'commits', label: 'Commits', count: development.commits?.length || 0, icon: <GitCommit className="h-3.5 w-3.5" />, color: 'indigo' },
+                          { id: 'prs', label: devPlatform === 'github' ? 'Pull Requests' : 'Merge Requests', count: development.pullRequests?.length || 0, icon: <GitPullRequest className="h-3.5 w-3.5" />, color: 'violet' },
+                        ].map(stat => (
+                          <button
+                            key={stat.id}
+                            onClick={() => setActiveDevTab(stat.id as any)}
+                            className="group flex items-center justify-between p-3 border border-border/60 hover:border-indigo-500/30 hover:bg-indigo-500/5 rounded-xl cursor-pointer transition-all duration-150 bg-muted/10 text-left"
+                          >
+                            <div className="flex flex-col gap-1">
+                              <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{stat.label}</span>
+                              <span className="text-xl font-black text-foreground tabular-nums">{stat.count}</span>
+                            </div>
+                            <span className="text-indigo-500/40 group-hover:text-indigo-500 transition-colors">{stat.icon}</span>
+                          </button>
+                        ))}
 
-                        <button
-                          onClick={() => setActiveDevTab('commits')}
-                          className="group flex flex-col justify-between p-3 border border-border hover:border-indigo-500/30 hover:bg-indigo-500/5 rounded-xl cursor-pointer transition-all duration-150 text-left bg-muted/10"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Commits</span>
-                            <GitCommit className="h-3.5 w-3.5 text-indigo-500/50 group-hover:text-indigo-500 transition-colors" />
-                          </div>
-                          <span className="text-lg font-black text-foreground mt-1.5">{development.commits?.length || 0}</span>
-                        </button>
-
-                        <button
-                          onClick={() => setActiveDevTab('prs')}
-                          className="group flex flex-col justify-between p-3 border border-border hover:border-indigo-500/30 hover:bg-indigo-500/5 rounded-xl cursor-pointer transition-all duration-150 text-left bg-muted/10"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">{devPlatform === 'github' ? 'PRs' : 'MRs'}</span>
-                            <GitPullRequest className="h-3.5 w-3.5 text-indigo-500/50 group-hover:text-indigo-500 transition-colors" />
-                          </div>
-                          <span className="text-lg font-black text-foreground mt-1.5">{development.pullRequests?.length || 0}</span>
-                        </button>
-
+                        {/* CI Status card */}
                         <button
                           onClick={() => setActiveDevTab('deployments')}
-                          className="group flex flex-col justify-between p-3 border border-border hover:border-emerald-500/30 hover:bg-emerald-500/5 rounded-xl cursor-pointer transition-all duration-150 text-left bg-muted/10"
+                          className="group flex items-center justify-between p-3 border border-border/60 hover:border-emerald-500/30 hover:bg-emerald-500/5 rounded-xl cursor-pointer transition-all duration-150 bg-muted/10 text-left"
                         >
-                          <div className="flex items-center justify-between w-full">
-                            <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">CI Status</span>
-                            <Globe className="h-3.5 w-3.5 text-emerald-500/50 group-hover:text-emerald-500 transition-colors" />
+                          <div className="flex flex-col gap-1">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">CI Status</span>
+                            {(() => {
+                              const status = development.workflows?.[0]?.status;
+                              const isPass = status === 'passed';
+                              const isFail = status === 'failed';
+                              return (
+                                <span className={`text-sm font-black flex items-center gap-1 ${
+                                  isPass ? 'text-emerald-500' : isFail ? 'text-red-500' : 'text-amber-500'
+                                }`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${
+                                    isPass ? 'bg-emerald-500' : isFail ? 'bg-red-500' : 'bg-amber-400 animate-pulse'
+                                  }`} />
+                                  {isPass ? 'Passing' : isFail ? 'Failed' : status ? 'Running' : 'No runs'}
+                                </span>
+                              );
+                            })()}
                           </div>
-                          <span className={`text-xs font-black mt-2 ${
-                            development.workflows?.[0]?.status === 'passed' ? 'text-emerald-500'
-                            : development.workflows?.[0]?.status === 'failed' ? 'text-red-500'
-                            : 'text-amber-500'
-                          }`}>
-                            {development.workflows?.[0]?.status === 'passed' ? '✓ Passing'
-                              : development.workflows?.[0]?.status === 'failed' ? '✗ Failed'
-                              : 'Running'}
-                          </span>
+                          <Globe className="h-3.5 w-3.5 text-emerald-500/40 group-hover:text-emerald-500 transition-colors" />
                         </button>
                       </div>
 
