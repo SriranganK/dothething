@@ -2339,7 +2339,7 @@ export function ItemDetailContent({
                   </SelectContent>
                 </Select>
                 {/* AI pick milestone */}
-                {milestonesData?.milestones?.length > 0 && (
+                {milestonesData?.milestones?.length && milestonesData?.milestones?.length > 0 && (
                   <button
                     onClick={handleAISuggestMilestone}
                     disabled={isSuggestingMilestone}
