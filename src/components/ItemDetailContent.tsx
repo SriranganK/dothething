@@ -481,11 +481,109 @@ export function ItemDetailContent({
 
   // Labels state
   const [labelSearch, setLabelSearch] = useState("");
+  const [isGeneratingLabels, setIsGeneratingLabels] = useState(false);
+  const [isSuggestingMilestone, setIsSuggestingMilestone] = useState(false);
 
   const filteredLabelsForPopover = useMemo(() => {
     if (!labelSearch) return allLabels;
     return allLabels.filter((l: any) => l.name.toLowerCase().includes(labelSearch.toLowerCase()));
   }, [allLabels, labelSearch]);
+
+  // AI: generate & apply labels
+  const handleAIGenerateLabels = async () => {
+    if (!item || !workspace?._id) return;
+    setIsGeneratingLabels(true);
+    try {
+      // Auto-save live editor text first so AI gets the latest description
+      if (description.trim()) {
+        await updateItem({ id: item._id, body: { description } }).unwrap();
+      }
+      const res = await suggestTaskMeta({
+        boardId: item.board,
+        title: item.title,
+        description: description
+      }).unwrap();
+
+      const suggestedNames: string[] = res.suggestions?.labels || [];
+      if (!suggestedNames.length) {
+        toast.info("AI couldn't suggest any labels for this task.");
+        return;
+      }
+
+      // Match existing labels or create missing ones
+      const labelIds: string[] = [];
+      for (const name of suggestedNames) {
+        const existing = allLabels.find((l: any) => l.name.toLowerCase().trim() === name.toLowerCase().trim());
+        if (existing) {
+          labelIds.push(existing._id);
+        } else {
+          // Create the label in the workspace with a nice auto color
+          const colors = ['#6366f1', '#8b5cf6', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#ec4899'];
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          try {
+            const created = await createLabel({ workspaceId: workspace._id, name, color }).unwrap();
+            if (created.label?._id) labelIds.push(created.label._id);
+          } catch { /* skip if creation fails */ }
+        }
+      }
+
+      if (!labelIds.length) {
+        toast.error("Failed to create or find suggested labels.");
+        return;
+      }
+
+      // Merge with existing labels (no duplicates)
+      const currentIds = (item.labels || []).map((l: any) => l._id || l);
+      const merged = [...new Set([...currentIds, ...labelIds])];
+      await handleSaveField({ labels: merged });
+      toast.success(`${suggestedNames.join(', ')} — labels applied!`);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to generate labels");
+    } finally {
+      setIsGeneratingLabels(false);
+    }
+  };
+
+  // AI: suggest best matching milestone
+  const handleAISuggestMilestone = async () => {
+    if (!item || !milestonesData?.milestones?.length) {
+      toast.info("No milestones available in this workspace.");
+      return;
+    }
+    setIsSuggestingMilestone(true);
+    try {
+      // Auto-save live editor text first so AI gets the latest description
+      if (description.trim()) {
+        await updateItem({ id: item._id, body: { description } }).unwrap();
+      }
+      const milestoneList = milestonesData.milestones.map((m: any) => m.name).join(', ');
+      const res = await suggestTaskMeta({
+        boardId: item.board,
+        title: `${item.title}. Available milestones: ${milestoneList}. Pick the best one.`,
+        description: description
+      }).unwrap();
+
+      // Find closest matching milestone by name
+      const suggestedLabel = res.suggestions?.labels?.[0] || '';
+      const milestones: any[] = milestonesData.milestones;
+      const match = milestones.find((m: any) =>
+        suggestedLabel && m.name.toLowerCase().includes(suggestedLabel.toLowerCase())
+      ) || milestones[0];
+
+      if (match) {
+        await handleSaveField({ milestone_id: match._id } as any);
+        toast.success(`Milestone set to "${match.name}" by AI`);
+      } else {
+        toast.info("AI couldn't determine the best milestone.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.data?.message || "Failed to suggest milestone");
+    } finally {
+      setIsSuggestingMilestone(false);
+    }
+  };
 
   // Plus dropdown
   const [showPlusDropdown, setShowPlusDropdown] = useState(false);
@@ -2240,6 +2338,19 @@ export function ItemDetailContent({
                     ))}
                   </SelectContent>
                 </Select>
+                {/* AI pick milestone */}
+                {milestonesData?.milestones?.length > 0 && (
+                  <button
+                    onClick={handleAISuggestMilestone}
+                    disabled={isSuggestingMilestone}
+                    title="AI pick best milestone"
+                    className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-950/20 border border-violet-200/60 dark:border-violet-800/30 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isSuggestingMilestone
+                      ? <Loader2 className="h-3 w-3 animate-spin" />
+                      : <Sparkles className="h-3 w-3 animate-pulse" />}
+                  </button>
+                )}
               </div>
 
               {/* Labels */}
@@ -2282,21 +2393,33 @@ export function ItemDetailContent({
                       {(item.labels && item.labels.length > 0) ? "+ Add/Edit" : "+ Edit Labels"}
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-60 bg-card text-card-foreground border border-border shadow-xl rounded-xl p-3 text-xs">
-                    <div className="font-bold text-foreground mb-2 select-none">Task Labels</div>
+                  <PopoverContent className="w-64 bg-card text-card-foreground border border-border shadow-xl rounded-xl p-3 text-xs">
+                    {/* Header with AI button */}
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-bold text-foreground text-sm">Task Labels</span>
+                      <button
+                        onClick={handleAIGenerateLabels}
+                        disabled={isGeneratingLabels}
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-gradient-to-r from-violet-500/10 to-indigo-500/10 text-violet-600 dark:text-violet-400 hover:from-violet-500/20 hover:to-indigo-500/20 border border-violet-300/40 dark:border-violet-700/30 cursor-pointer transition-all disabled:opacity-50"
+                      >
+                        {isGeneratingLabels
+                          ? <><Loader2 className="h-3 w-3 animate-spin" /> Generating...</>
+                          : <><Sparkles className="h-3 w-3 animate-pulse" /> Generate with AI</>}
+                      </button>
+                    </div>
 
                     {/* Search labels */}
                     <input
                       type="text"
-                      placeholder="Search or filter..."
+                      placeholder="Search or create..."
                       value={labelSearch}
                       onChange={(e) => setLabelSearch(e.target.value)}
-                      className="w-full border border-border rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:border-primary/50 font-semibold"
+                      className="w-full border border-border rounded-lg px-2.5 py-1.5 mb-2 focus:outline-none focus:border-primary/50 font-semibold text-xs bg-transparent"
                     />
 
-                    <div className="max-h-64 overflow-y-auto space-y-1.5 pr-1">
+                    <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
                       {filteredLabelsForPopover.length === 0 ? (
-                        <div className="text-muted-foreground italic text-center py-4 select-none">No labels found</div>
+                        <div className="text-muted-foreground italic text-center py-4 select-none text-xs">No labels found</div>
                       ) : (
                         filteredLabelsForPopover.map((l: any) => {
                           const isChecked = item.labels?.some((itemL: any) => getLabelId(itemL) === l._id);
@@ -2321,7 +2444,7 @@ export function ItemDetailContent({
                                     }
                                     handleSaveField({ labels: updated });
                                   }}
-                                  className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-indigo-500 cursor-pointer"
+                                  className="w-3.5 h-3.5 text-primary border-border rounded focus:ring-indigo-500 cursor-pointer accent-indigo-500"
                                 />
                                 <span
                                   className="w-2.5 h-2.5 rounded-full shrink-0"
