@@ -489,12 +489,21 @@ export const backendApi = createApi({
       }),
       invalidatesTags: ['Item', 'Activity'],
     }),
-    boardChat: builder.mutation<{ success: boolean; reply: string }, { boardId: string; message: string }>({
-      query: ({ boardId, message }) => ({
+    boardChat: builder.mutation<{ success: boolean; reply: string }, { boardId: string; message: string; history?: any[] }>({
+      query: ({ boardId, message, history }) => ({
         url: `/ai/board/${boardId}/chat`,
         method: 'POST',
-        body: { message },
+        body: { message, history },
       }),
+      invalidatesTags: ['Item', 'Board', 'Activity'],
+    }),
+    workspaceChat: builder.mutation<{ success: boolean; reply: string }, { workspaceId: string; message: string; history?: any[] }>({
+      query: ({ workspaceId, message, history }) => ({
+        url: `/ai/workspace/${workspaceId}/chat`,
+        method: 'POST',
+        body: { message, history },
+      }),
+      invalidatesTags: ['Item', 'Board', 'Activity'],
     }),
     generateTaskFromStory: builder.mutation<{ success: boolean; item: ItemType }, { boardId: string; columnId: string; title: string; story: string }>({
       query: ({ boardId, columnId, title, story }) => ({
@@ -503,6 +512,43 @@ export const backendApi = createApi({
         body: { title, story },
       }),
       invalidatesTags: ['Item', 'Activity'],
+    }),
+    uploadDocumentSession: builder.mutation<{ success: boolean; session: any }, { workspaceId: string; boardId?: string | null; file: File }>({
+      query: ({ workspaceId, boardId, file }) => ({
+        url: `/ai/board-session/upload?workspaceId=${workspaceId}${boardId ? `&boardId=${boardId}` : ''}&fileName=${encodeURIComponent(file.name)}`,
+        method: 'POST',
+        body: file,
+        headers: {
+          'Content-Type': file.type || 'application/octet-stream'
+        }
+      })
+    }),
+    addCommentToSession: builder.mutation<{ success: boolean; session: any }, { sessionId: string; comment?: string; teamMembers?: any[] }>({
+      query: ({ sessionId, comment, teamMembers }) => ({
+        url: `/ai/board-session/${sessionId}/comment`,
+        method: 'POST',
+        body: { comment, teamMembers }
+      })
+    }),
+    answerSessionQuestion: builder.mutation<{ success: boolean; session: any }, { sessionId: string; answer?: string; skipAll?: boolean }>({
+      query: ({ sessionId, answer, skipAll }) => ({
+        url: `/ai/board-session/${sessionId}/answer`,
+        method: 'POST',
+        body: { answer, skipAll }
+      })
+    }),
+    confirmSession: builder.mutation<{ success: boolean; board: BoardType }, { sessionId: string }>({
+      query: ({ sessionId }) => ({
+        url: `/ai/board-session/${sessionId}/confirm`,
+        method: 'POST'
+      }),
+      invalidatesTags: ['Board', 'Item', 'Workspace', 'Activity']
+    }),
+    cancelSession: builder.mutation<{ success: boolean; message: string }, { sessionId: string }>({
+      query: ({ sessionId }) => ({
+        url: `/ai/board-session/${sessionId}/cancel`,
+        method: 'POST'
+      })
     }),
   }),
 });
@@ -575,6 +621,12 @@ export const {
   useBreakTaskMutation,
   useRewriteDescriptionMutation,
   useBoardChatMutation,
+  useWorkspaceChatMutation,
   useGenerateTaskFromStoryMutation,
+  useUploadDocumentSessionMutation,
+  useAddCommentToSessionMutation,
+  useAnswerSessionQuestionMutation,
+  useConfirmSessionMutation,
+  useCancelSessionMutation,
 } = backendApi;
 

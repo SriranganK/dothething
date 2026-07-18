@@ -24,6 +24,9 @@ import {
   UserPlus,
   Sliders,
   ArrowLeftRight,
+  Layers,
+  Search,
+  FileText,
 } from "lucide-react";
 import { PriorityIndicator } from "@/components/ui/priority-indicator";
 import { StatusIndicator } from "@/components/ui/status-indicator";
@@ -82,6 +85,9 @@ const typeIcons: Record<ItemTypeClass, React.ReactNode> = {
   Idea: <Lightbulb className="h-3 w-3 text-purple-500" />,
   Issue: <AlertTriangle className="h-3 w-3 text-amber-500" />,
   Event: <Calendar className="h-3 w-3 text-indigo-500" />,
+  Feature: <Layers className="h-3 w-3 text-violet-500" />,
+  Research: <Search className="h-3 w-3 text-cyan-500" />,
+  Documentation: <FileText className="h-3 w-3 text-slate-500" />,
 };
 
 const priorityDotColors: Record<ItemPriorityClass, string> = {

@@ -1432,6 +1432,19 @@ export function ItemDetailContent({
               </div>
             </div>
 
+            {/* Source Document Traceability */}
+            {item.source && (
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-muted-foreground">Source</span>
+                <div className="w-48 shrink-0 flex items-center justify-end">
+                  <Badge variant="outline" className="h-7 px-2.5 text-xs font-bold bg-muted/40 text-muted-foreground border-border rounded-md max-w-full truncate" title={`Source: ${item.source}`}>
+                    <Link className="h-3.5 w-3.5 mr-1 inline shrink-0" />
+                    <span className="truncate">{item.source}</span>
+                  </Badge>
+                </div>
+              </div>
+            )}
+
             {/* Due Date */}
             <div className="flex items-center justify-between gap-3">
               <span className="text-xs font-bold text-muted-foreground">Due Date</span>
@@ -2540,6 +2553,19 @@ export function ItemDetailContent({
                 className="h-7 border-none bg-transparent hover:bg-muted text-foreground text-xs px-1 rounded-md cursor-pointer focus:ring-0 max-w-16 font-extrabold focus:bg-card text-card-foreground focus:border-border"
                 placeholder="None"
               />
+
+              {/* Source Document Traceability */}
+              {item.source && (
+                <>
+                  <span className="text-[#5e6c84] font-semibold text-xs">Source</span>
+                  <div className="flex items-center gap-1.5 w-full">
+                    <Badge variant="outline" className="h-7 px-2.5 text-xs font-bold bg-muted/40 text-muted-foreground border-border rounded-md max-w-full truncate" title={`Source: ${item.source}`}>
+                      <Link className="h-3.5 w-3.5 mr-1 inline shrink-0" />
+                      <span className="truncate">{item.source}</span>
+                    </Badge>
+                  </div>
+                </>
+              )}
 
             </div>
             )}

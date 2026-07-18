@@ -34,6 +34,7 @@ export interface BoardType {
   members?: { userId: string; role: string; name?: string }[]; // added members with role
   visibility?: 'WORKSPACE' | 'PRIVATE';
   currentUserRole?: string;
+  sourceDocuments?: { fileName: string; uploadedAt: string }[];
   createdAt: string;
 }
 
@@ -51,7 +52,7 @@ export interface ChecklistItemType {
   completed: boolean;
 }
 
-export type ItemTypeClass = 'Task' | 'Bug' | 'Lead' | 'Idea' | 'Issue' | 'Event';
+export type ItemTypeClass = 'Task' | 'Bug' | 'Lead' | 'Idea' | 'Issue' | 'Event' | 'Feature' | 'Research' | 'Documentation';
 export type ItemPriorityClass = 'Lowest' | 'Low' | 'Medium' | 'High' | 'Highest' | 'Critical';
 export type ViewMode = "kanban" | "list" | "calendar" | "timeline" | "summary";
 
@@ -84,6 +85,7 @@ export interface ItemType {
   linkedRepo?: string;
   githubBranchName?: string;
   gitlabBranchName?: string;
+  source?: string;
 }
 
 export interface AttachmentType {

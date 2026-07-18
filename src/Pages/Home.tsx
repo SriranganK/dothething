@@ -213,8 +213,6 @@ export default function HomePage() {
         }
         dispatch(setActiveWorkspaceId(workspaces[0]._id));
       }
-    } else if (!workspacesLoading && !workspacesFetching && workspaces.length === 0 && isAuthenticated) {
-      dispatch(setShowCreateModal(true));
     }
   }, [workspacesLoading, workspacesFetching, workspaces, activeWorkspaceId, urlWorkspaceId, dispatch, isAuthenticated]);
 

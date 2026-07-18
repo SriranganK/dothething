@@ -29,6 +29,7 @@ import {
   AlertDialogAction,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import ReactMarkdown from "react-markdown";
 import {
   Plus,
   FileText,
@@ -66,6 +67,9 @@ import {
   Briefcase,
   Lock,
   Eye,
+  BrainCircuit,
+  Send,
+  X,
 } from "lucide-react";
 import type { WorkspaceType, BoardType } from "@/types/workspace";
 import { useAppDispatch } from "@/store/hooks";
@@ -79,11 +83,14 @@ import {
   useGetWorkspaceActivityQuery,
   useGetWorkspaceMembersQuery,
   useGenerateAIBoardMutation,
+  useWorkspaceChatMutation,
 } from "@/store/services/api";
 import { toast } from "sonner";
 import { ActivityFeedPopover } from "@/components/ActivityFeedPopover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import JiraSummaryPage from "@/Pages/JiraSummaryPage";
+import AIDocumentToBoardModal from "@/components/AIDocumentToBoardModal";
 
 interface WorkspaceDashboardProps {
   user: any;
@@ -120,28 +127,7 @@ export function WorkspaceDashboard({
   const dispatch = useAppDispatch();
 
   // State definitions
-  const [aiBoardOpen, setAiBoardOpen] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState("");
-  const [generateAIBoard, { isLoading: isGeneratingAI }] = useGenerateAIBoardMutation();
-
-  const handleGenerateAIBoard = async () => {
-    if (!aiPrompt.trim() || !workspace?._id) return;
-    try {
-      const res = await generateAIBoard({
-        workspaceId: workspace._id,
-        prompt: aiPrompt.trim(),
-      }).unwrap();
-      if (res.success && res.board) {
-        toast.success("Board generated successfully with AI!");
-        setAiPrompt("");
-        setAiBoardOpen(false);
-        onSelectBoard(res.board._id);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err?.data?.message || "Failed to generate board with AI");
-    }
-  };
+  // AI states removed (handled by BoardCreateModal)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState<string | null>(null);
@@ -158,6 +144,14 @@ export function WorkspaceDashboard({
   const [summaryBoard, setSummaryBoard] = useState<BoardType | null>(null);
   const [summaryItems, setSummaryItems] = useState<any[]>([]);
   const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Workspace Chat State
+  const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
+    { sender: 'ai', text: "Hi! I am your AI coordinator for this workspace. Ask me to summarize dashboard analytics, milestones, task workloads, or general workspace details!" }
+  ]);
+  const [workspaceChat, { isLoading: isChatting }] = useWorkspaceChatMutation();
 
   // Label Quick Create form
   const [newLabelName, setNewLabelName] = useState("");
@@ -296,6 +290,27 @@ export function WorkspaceDashboard({
       console.error(err);
     } finally {
       setSummaryLoading(false);
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatMessage.trim() || !workspace?._id) return;
+    const userMsg = chatMessage.trim();
+    setChatMessage("");
+    setChatHistory(prev => [...prev, { sender: 'user', text: userMsg }]);
+
+    try {
+      const res = await workspaceChat({
+        workspaceId: workspace._id,
+        message: userMsg
+      }).unwrap();
+
+      if (res.success && res.reply) {
+        setChatHistory(prev => [...prev, { sender: 'ai', text: res.reply }]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setChatHistory(prev => [...prev, { sender: 'ai', text: `Error: ${err?.data?.message || "Failed to reach AI coordinator."}` }]);
     }
   };
 
@@ -570,15 +585,17 @@ export function WorkspaceDashboard({
             {workspace?.role !== "GUEST" && (
                 <div className="flex items-center gap-2">
                   <Button
-                    onClick={() => setAiBoardOpen(true)}
-                    className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-200"
+                    variant="outline"
+                    onClick={() => setAiChatOpen(true)}
+                    className="rounded-xl border-indigo-200 dark:border-indigo-900 text-indigo-650 dark:text-indigo-400 hover:bg-indigo-50/50 cursor-pointer font-bold flex items-center gap-1.5 h-10 px-4"
                   >
-                    <Sparkles className="mr-1.5 h-4 w-4 animate-pulse" />
-                    Generate with AI
+                    <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
+                    Ask AI
                   </Button>
+
                   <Button
                     onClick={onCreateBoard}
-                    className="bg-muted hover:bg-muted/70 text-foreground font-bold h-10 px-5 rounded-xl cursor-pointer border border-border shadow-xs transition-colors"
+                    className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-200"
                   >
                     <Plus className="mr-1.5 h-4 w-4" />
                     New Board
@@ -1482,66 +1499,87 @@ export function WorkspaceDashboard({
         </DialogContent>
       </Dialog>
 
-      {/* AI Board Generation Dialog */}
-      <Dialog open={aiBoardOpen} onOpenChange={setAiBoardOpen}>
-        <DialogContent className="max-w-md rounded-2xl p-6 border border-border bg-card text-card-foreground shadow-2xl">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2 select-none">
-              <div className="p-2 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-400">
-                <Sparkles className="h-5 w-5 animate-pulse" />
+      {/* Workspace Chat Assistant Dialog */}
+      <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
+        <DialogContent className="max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden border border-border bg-card text-card-foreground shadow-2xl rounded-2xl">
+          {/* Header */}
+          <div className="p-4 border-b border-border flex items-center justify-between select-none bg-muted/30">
+            <div className="flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-650 dark:text-indigo-400">
+                <BrainCircuit className="h-5 w-5 animate-pulse" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-foreground">Generate Board with AI</h3>
-                <p className="text-xs text-muted-foreground">Describe your project and workflow in natural language.</p>
+                <h3 className="font-bold text-sm text-foreground">AI Workspace Assistant</h3>
+                <p className="text-[10px] text-muted-foreground font-medium">Ask questions about boards, milestones, workloads, or tasks.</p>
               </div>
             </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setAiChatOpen(false)}
+              className="h-8 w-8 rounded-lg cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
 
-            <div className="space-y-2">
-              <textarea
-                placeholder="e.g., Marketing launch plan for our new SaaS app. Include columns for brainstorming, copywriting, design, and ready-to-publish. Generate 8 initial tasks."
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                className="w-full min-h-[100px] p-3 text-sm rounded-xl border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground resize-none"
-                disabled={isGeneratingAI}
-              />
+          {/* Chat Messages */}
+          <ScrollArea className="flex-1 p-4 bg-muted/5">
+            <div className="space-y-4 pr-2">
+              {chatHistory.map((msg, i) => (
+                <div
+                  key={i}
+                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs shadow-xs leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-primary text-white font-medium rounded-tr-none'
+                        : 'bg-card border border-border text-foreground rounded-tl-none prose prose-xs dark:prose-invert'
+                    }`}
+                  >
+                    {msg.sender === 'user' ? (
+                      msg.text
+                    ) : (
+                      <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {isChatting && (
+                <div className="flex justify-start">
+                  <div className="bg-card border border-border text-muted-foreground rounded-2xl rounded-tl-none px-3.5 py-2.5 text-xs shadow-xs flex items-center gap-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+                    <span>Thinking...</span>
+                  </div>
+                </div>
+              )}
             </div>
+          </ScrollArea>
 
-            <div className="flex justify-between items-center mt-2">
-              <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                <HelpCircle className="h-3 w-3" />
-                Powered by Groq / Grok
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setAiBoardOpen(false)}
-                  disabled={isGeneratingAI}
-                  className="rounded-xl h-9 cursor-pointer"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleGenerateAIBoard}
-                  disabled={isGeneratingAI || !aiPrompt.trim()}
-                  className="bg-[#4f46e5] hover:bg-[#4338ca] text-white rounded-xl h-9 font-semibold flex items-center gap-1.5 cursor-pointer"
-                >
-                  {isGeneratingAI ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Generating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="h-4 w-4" />
-                      <span>Generate</span>
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
+          {/* Footer Input */}
+          <div className="p-3 border-t border-border bg-card flex gap-2">
+            <input
+              type="text"
+              placeholder="E.g., Which developer has the most tasks assigned? Summarize milestones."
+              value={chatMessage}
+              onChange={(e) => setChatMessage(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendChatMessage()}
+              className="flex-1 px-3 py-2 text-xs rounded-xl border border-border bg-background focus:outline-none focus:ring-1 focus:ring-primary/20 text-foreground"
+              disabled={isChatting}
+            />
+            <Button
+              onClick={handleSendChatMessage}
+              disabled={!chatMessage.trim() || isChatting}
+              className="bg-primary hover:bg-primary/90 text-white rounded-xl h-9 px-3.5 text-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+            >
+              <Send className="h-3.5 w-3.5" />
+              <span>Send</span>
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
