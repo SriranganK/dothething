@@ -13,7 +13,10 @@ import {
   User,
   ChevronRight,
   ChevronLeft,
-  Filter
+  Filter,
+  Layers,
+  Search,
+  FileText
 } from "lucide-react";
 import type { WorkspaceType, BoardType, ItemType, ItemPriorityClass, ItemTypeClass } from "@/types/workspace";
 
@@ -33,6 +36,9 @@ const typeIcons: Record<ItemTypeClass, React.ReactNode> = {
   Idea: <Lightbulb className="h-4 w-4 text-violet-500" />,
   Issue: <AlertTriangle className="h-4 w-4 text-amber-500" />,
   Event: <Calendar className="h-4 w-4 text-orange-500" />,
+  Feature: <Layers className="h-4 w-4 text-violet-500" />,
+  Research: <Search className="h-4 w-4 text-cyan-500" />,
+  Documentation: <FileText className="h-4 w-4 text-slate-500" />,
 };
 
 const priorityColors: Record<ItemPriorityClass, string> = {
@@ -78,6 +84,18 @@ const typePillThemeClasses: Record<ItemTypeClass, { bar: string; border: string 
   Event: {
     bar: "bg-gradient-to-r from-orange-400 to-amber-500 text-white shadow-orange-500/20",
     border: "border-orange-300"
+  },
+  Feature: {
+    bar: "bg-gradient-to-r from-violet-500 to-indigo-505 text-white shadow-violet-500/20",
+    border: "border-violet-300"
+  },
+  Research: {
+    bar: "bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow-cyan-500/20",
+    border: "border-cyan-300"
+  },
+  Documentation: {
+    bar: "bg-gradient-to-r from-slate-500 to-zinc-500 text-white shadow-slate-500/20",
+    border: "border-slate-300"
   },
 };
 

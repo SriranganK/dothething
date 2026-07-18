@@ -15,7 +15,10 @@ import {
   ChevronLeft,
   Filter,
   X,
-  ListTodo
+  ListTodo,
+  Layers,
+  Search,
+  FileText
 } from "lucide-react";
 import type { WorkspaceType, BoardType, ItemType, ItemPriorityClass, ItemTypeClass } from "@/types/workspace";
 
@@ -35,6 +38,9 @@ const typeIcons: Record<ItemTypeClass, React.ReactNode> = {
   Idea: <Lightbulb className="h-3.5 w-3.5 text-violet-500" />,
   Issue: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
   Event: <Calendar className="h-3.5 w-3.5 text-orange-500" />,
+  Feature: <Layers className="h-3.5 w-3.5 text-violet-500" />,
+  Research: <Search className="h-3.5 w-3.5 text-cyan-500" />,
+  Documentation: <FileText className="h-3.5 w-3.5 text-slate-500" />,
 };
 
 const priorityColors: Record<ItemPriorityClass, string> = {
@@ -63,6 +69,9 @@ const typeThemeClasses: Record<ItemTypeClass, string> = {
   Idea: "bg-violet-50/80 border-violet-150 text-violet-700 hover:bg-violet-100/90",
   Issue: "bg-amber-50/80 border-amber-150 text-amber-700 hover:bg-amber-100/90",
   Event: "bg-orange-50/80 border-orange-150 text-orange-700 hover:bg-orange-100/90",
+  Feature: "bg-violet-50/80 border-violet-150 text-violet-700 hover:bg-violet-100/90",
+  Research: "bg-cyan-50/80 border-cyan-150 text-cyan-700 hover:bg-cyan-100/90",
+  Documentation: "bg-slate-50/80 border-slate-150 text-slate-700 hover:bg-slate-100/90",
 };
 
 // Safe local date parsing helper (ignores system timezone shifts)

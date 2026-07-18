@@ -37,6 +37,9 @@ import {
   UserPlus,
   UserMinus,
   ArrowRightLeft,
+  Layers,
+  Search,
+  FileText,
 } from "lucide-react";
 import { PriorityIndicator } from "@/components/ui/priority-indicator";
 import { StatusIndicator } from "@/components/ui/status-indicator";
@@ -75,6 +78,9 @@ export const typeIcons: Record<ItemTypeClass, React.ReactNode> = {
   Idea: <Lightbulb className="h-3.5 w-3.5 text-purple-500" />,
   Issue: <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />,
   Event: <Calendar className="h-3.5 w-3.5 text-indigo-500" />,
+  Feature: <Layers className="h-3.5 w-3.5 text-violet-500" />,
+  Research: <Search className="h-3.5 w-3.5 text-cyan-500" />,
+  Documentation: <FileText className="h-3.5 w-3.5 text-slate-500" />,
 };
 
 const priorityIcons: Record<ItemPriorityClass, React.ReactNode> = {
@@ -95,7 +101,7 @@ export const priorityBorderColors: Record<ItemPriorityClass, string> = {
   Critical: "border-l-4 border-l-red-650 shadow-sm shadow-red-600/5",
 };
 
-export const typeBadges: Record<ItemTypeClass, { text: string; styles: string }> = { Task: { text: "Task", styles: "bg-muted text-foreground/90 border-border" }, Bug: { text: "Bug", styles: "bg-red-50 text-red-650 border-red-100" }, Lead: { text: "Lead", styles: "bg-emerald-50 text-emerald-700 border-emerald-100" }, Idea: { text: "Idea", styles: "bg-purple-50 text-purple-700 border-purple-100" }, Issue: { text: "Issue", styles: "bg-amber-50 text-amber-700 border-amber-100" }, Event: { text: "Event", styles: "bg-primary/10 text-primary border-primary/20" }, };
+export const typeBadges: Record<ItemTypeClass, { text: string; styles: string }> = { Task: { text: "Task", styles: "bg-muted text-foreground/90 border-border" }, Bug: { text: "Bug", styles: "bg-red-50 text-red-650 border-red-100" }, Lead: { text: "Lead", styles: "bg-emerald-50 text-emerald-700 border-emerald-100" }, Idea: { text: "Idea", styles: "bg-purple-50 text-purple-700 border-purple-100" }, Issue: { text: "Issue", styles: "bg-amber-50 text-amber-700 border-amber-100" }, Event: { text: "Event", styles: "bg-primary/10 text-primary border-primary/20" }, Feature: { text: "Feature", styles: "bg-violet-50 text-violet-755 border-violet-100" }, Research: { text: "Research", styles: "bg-cyan-50 text-cyan-755 border-cyan-100" }, Documentation: { text: "Docs", styles: "bg-slate-50 text-slate-755 border-slate-100" }, };
 
 export const priorityDotColors: Record<ItemPriorityClass, string> = {
   Lowest: "bg-muted-foreground/20",
@@ -490,6 +496,17 @@ export function TaskCard({
             <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <Paperclip className="h-3.5 w-3.5" />
               {item.attachments.length}
+            </div>
+          )}
+
+          {/* Traceability Link */}
+          {item.source && (
+            <div 
+              className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border/30 max-w-[120px] truncate"
+              title={`Source: ${item.source}`}
+            >
+              <Link className="h-3 w-3 shrink-0 text-muted-foreground/80" />
+              <span className="truncate">{item.source}</span>
             </div>
           )}
         </div>

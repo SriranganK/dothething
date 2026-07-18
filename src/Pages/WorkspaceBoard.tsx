@@ -59,7 +59,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Separator } from "@/components/ui/separator";
 
 import { ItemDetailModal } from "@/components/ItemDetailModal";
@@ -92,6 +92,8 @@ import type {
 } from "@/types/workspace";
 import { useNotifications } from "@/components/NotificationProvider";
 import { useAuth } from "@/context/AuthContext";
+import AIDocumentToBoardModal from "@/components/AIDocumentToBoardModal";
+import { FileText } from "lucide-react";
 
 const typeFilterIcons: Record<string, React.ReactNode> = {
   All: <CircleDot className="size-3.5 mr-2 text-zinc-400" />,
@@ -373,11 +375,21 @@ function WorkspaceBoardContent({
   const [generateAIColumns, { isLoading: isGeneratingColumns }] = useGenerateAIColumnsMutation();
 
   const [aiChatOpen, setAiChatOpen] = useState(false);
+  const [docImportOpen, setDocImportOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
-  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
+  const [chatHistory, setChatHistory] = useState<Array<{ sender: 'user' | 'ai'; text: string; table?: { headers: string[]; rows: string[][] } }>>([
     { sender: 'ai', text: `Hi! I am your AI assistant for board "${board.name}". Ask me about task progress, blockers, priorities, or what to build next!` }
   ]);
   const [boardChat, { isLoading: isChatting }] = useBoardChatMutation();
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const lastTaskListRef = useRef<Array<{ _id: string; title: string; columnName: string; assignee: string; priority: string }>>([]);
+
+  // Auto-scroll chat to bottom when messages change
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatHistory, isChatting]);
 
   const [aiTaskMode, setAiTaskMode] = useState(false);
   const [quickAddStory, setQuickAddStory] = useState("");
@@ -398,14 +410,239 @@ function WorkspaceBoardContent({
     }
   };
 
+  // Helper: find column name by ID
+  const getColumnName = (columnId: string) => {
+    const col = board.columns.find(c => c.id === columnId);
+    return col ? col.name : columnId;
+  };
+
+  // Helper: detect task-list queries
+  const isTaskListQuery = (msg: string) => {
+    const lower = msg.toLowerCase();
+    return (
+      (lower.includes('list') || lower.includes('show') || lower.includes('display') || lower.includes('get') || lower.includes('what')) &&
+      (lower.includes('task') || lower.includes('todo') || lower.includes('item') || lower.includes('ticket'))
+    );
+  };
+
+  // Helper: detect assignment commands like "assign me for 2nd task", "assign me to task 3"
+  // Returns: positive number = specific task index, 0 = assign detected but no number, null = not an assign command
+  const parseAssignCommand = (msg: string): number | null => {
+    const lower = msg.toLowerCase();
+    if (!lower.includes('assign')) return null;
+    // Match patterns like: "assign me for 2nd task", "assign me to 3rd task", "assign task 2 to me", "assign me for task 2"
+    const ordinalMap: Record<string, number> = { 'first': 1, '1st': 1, 'second': 2, '2nd': 2, 'third': 3, '3rd': 3, 'fourth': 4, '4th': 4, 'fifth': 5, '5th': 5, 'sixth': 6, '6th': 6, 'seventh': 7, '7th': 7, 'eighth': 8, '8th': 8, 'ninth': 9, '9th': 9, 'tenth': 10, '10th': 10 };
+    for (const [word, num] of Object.entries(ordinalMap)) {
+      if (lower.includes(word)) return num;
+    }
+    // Match "task 2", "task #2", etc.
+    const numMatch = lower.match(/(?:task|#)\s*(\d+)/);
+    if (numMatch) return parseInt(numMatch[1]);
+    // Match plain number in context of assign
+    const plainNum = lower.match(/assign\s+(?:me\s+)?(?:for|to)?\s*(\d+)/);
+    if (plainNum) return parseInt(plainNum[1]);
+    // "assign" detected but no specific number — return 0 as a sentinel
+    return 0;
+  };
+
+
+  // Helper: perform the actual assignment of a task to the current user
+  const performAssignment = async (taskIndex: number, taskList: typeof lastTaskListRef.current) => {
+    if (taskIndex < 1 || taskIndex > taskList.length) {
+      setChatHistory(prev => [...prev, { sender: 'ai', text: `Invalid task number. Please choose between 1 and ${taskList.length}.` }]);
+      return;
+    }
+    const targetTask = taskList[taskIndex - 1];
+    const userEmail = user?.email || '';
+    const userName = user?.name || 'You';
+    try {
+      await updateItem({ id: targetTask._id, body: { assignee: userEmail } }).unwrap();
+      setChatHistory(prev => [...prev, {
+        sender: 'ai',
+        text: `✅ Done! Task "${targetTask.title}" (Sl.No ${taskIndex}) has been assigned to ${userName} (${userEmail}).`
+      }]);
+      toast.success(`Task "${targetTask.title}" assigned to you!`);
+    } catch (err: any) {
+      console.error(err);
+      setChatHistory(prev => [...prev, { sender: 'ai', text: `❌ Failed to assign task "${targetTask.title}". Please try again.` }]);
+    }
+  };
+
+
+  // Helper: detect which column the user is asking about
+  const detectColumnFromQuery = (msg: string): string | null => {
+    const lower = msg.toLowerCase();
+    for (const col of board.columns) {
+      if (lower.includes(col.name.toLowerCase())) {
+        return col.name;
+      }
+    }
+    // Default common mappings
+    if (lower.includes('todo') || lower.includes('to do') || lower.includes('to-do')) return 'To Do';
+    if (lower.includes('in progress') || lower.includes('doing')) return 'In Progress';
+    if (lower.includes('done') || lower.includes('completed') || lower.includes('complete')) return 'Done';
+    return null;
+  };
+
   const handleSendChatMessage = async () => {
     if (!chatMessage.trim()) return;
     const userMsg = chatMessage.trim();
     setChatHistory(prev => [...prev, { sender: 'user', text: userMsg }]);
     setChatMessage("");
 
+    // --- Local handling: Assignment command ---
+    const assignIdx = parseAssignCommand(userMsg);
+    if (assignIdx !== null) {
+      // assignIdx > 0: user specified a task number (e.g. "assign me for 2nd task")
+      // assignIdx === 0: user said "assign" but no number (e.g. "assign the task to me")
+
+      if (assignIdx > 0 && lastTaskListRef.current.length > 0) {
+        // Specific task number with existing task list context
+        await performAssignment(assignIdx, lastTaskListRef.current);
+        return;
+      }
+
+      if (assignIdx === 0) {
+        // No specific number — check if we can resolve which tasks they mean
+        const columnName = detectColumnFromQuery(userMsg);
+
+        if (lastTaskListRef.current.length === 1) {
+          // Only 1 task in context — auto-assign it
+          await performAssignment(1, lastTaskListRef.current);
+          return;
+        }
+
+        if (lastTaskListRef.current.length > 1) {
+          // Multiple tasks in context — ask user to specify
+          setChatHistory(prev => [...prev, {
+            sender: 'ai',
+            text: `There are ${lastTaskListRef.current.length} tasks in the list. Please specify which one, e.g. "assign me for 2nd task".`
+          }]);
+          return;
+        }
+
+        // No prior task list — try to resolve from column mentioned in the message
+        if (columnName) {
+          const matchingCol = board.columns.find(c => c.name.toLowerCase().includes(columnName.toLowerCase()));
+          if (matchingCol) {
+            const colTasks = items.filter(item => item.columnId === matchingCol.id);
+            if (colTasks.length === 0) {
+              setChatHistory(prev => [...prev, { sender: 'ai', text: `No tasks found in "${matchingCol.name}" to assign.` }]);
+              return;
+            }
+            // Store for follow-up
+            lastTaskListRef.current = colTasks.map(t => ({
+              _id: t._id,
+              title: t.title,
+              columnName: getColumnName(t.columnId),
+              assignee: t.assignee || 'Unassigned',
+              priority: t.priority || 'Medium',
+            }));
+            if (colTasks.length === 1) {
+              await performAssignment(1, lastTaskListRef.current);
+              return;
+            }
+            // Multiple tasks — show list and ask to pick
+            const headers = ['Sl.No', 'Task ID', 'Task Name', 'Status', 'Assignee', 'Priority'];
+            const rows = colTasks.map((t, i) => {
+              const assigneeName = t.assignee ? (emailToNameMap.get(t.assignee.toLowerCase().trim()) || t.assignee) : 'Unassigned';
+              return [
+                String(i + 1),
+                t._id.slice(-6).toUpperCase(),
+                t.title,
+                getColumnName(t.columnId),
+                assigneeName,
+                t.priority || 'Medium',
+              ];
+            });
+            setChatHistory(prev => [...prev, {
+              sender: 'ai',
+              text: `There are ${colTasks.length} tasks in "${matchingCol.name}". Which one should I assign? Say "assign me for 2nd task".`,
+              table: { headers, rows }
+            }]);
+            return;
+          }
+        }
+
+        // No column, no prior list — can't determine which task
+        setChatHistory(prev => [...prev, {
+          sender: 'ai',
+          text: `I'm not sure which task to assign. Try asking "show tasks in Todo" first, then say "assign me for 2nd task".`
+        }]);
+        return;
+      }
+    }
+
+    // --- Local handling: Task list query ---
+    if (isTaskListQuery(userMsg)) {
+      const columnName = detectColumnFromQuery(userMsg);
+      let tasksToShow: typeof items = [];
+      let responseLabel = '';
+
+      if (columnName) {
+        // Find best matching column
+        const matchingCol = board.columns.find(c => c.name.toLowerCase().includes(columnName.toLowerCase()));
+        if (matchingCol) {
+          tasksToShow = items.filter(item => item.columnId === matchingCol.id);
+          responseLabel = `"${matchingCol.name}"`;
+        } else {
+          tasksToShow = items;
+          responseLabel = `"${board.name}"`;
+        }
+      } else {
+        // Show all tasks
+        tasksToShow = items;
+        responseLabel = `board "${board.name}"`;
+      }
+
+      if (tasksToShow.length === 0) {
+        setChatHistory(prev => [...prev, { sender: 'ai', text: `No tasks found in ${responseLabel}.` }]);
+        lastTaskListRef.current = [];
+        return;
+      }
+
+      // Store for follow-up commands
+      lastTaskListRef.current = tasksToShow.map(t => ({
+        _id: t._id,
+        title: t.title,
+        columnName: getColumnName(t.columnId),
+        assignee: t.assignee || 'Unassigned',
+        priority: t.priority || 'Medium',
+      }));
+
+      const headers = ['Sl.No', 'Task ID', 'Task Name', 'Status', 'Assignee', 'Priority'];
+      const rows = tasksToShow.map((t, i) => {
+        const assigneeName = t.assignee ? (emailToNameMap.get(t.assignee.toLowerCase().trim()) || t.assignee) : 'Unassigned';
+        return [
+          String(i + 1),
+          t._id.slice(-6).toUpperCase(),
+          t.title,
+          getColumnName(t.columnId),
+          assigneeName,
+          t.priority || 'Medium',
+        ];
+      });
+
+      setChatHistory(prev => [...prev, {
+        sender: 'ai',
+        text: `Here are the tasks in ${responseLabel} (${tasksToShow.length} total).\nYou can say "assign me for 2nd task" to assign a task to yourself.`,
+        table: { headers, rows }
+      }]);
+      return;
+    }
+
+    // --- Fallback: send to AI backend ---
+    const historySnapshot = chatHistory.map(h => ({
+      role: h.sender === 'user' ? 'user' : 'assistant',
+      text: h.text
+    }));
+
     try {
-      const res = await boardChat({ boardId, message: userMsg }).unwrap();
+      const res = await boardChat({
+        boardId,
+        message: userMsg,
+        history: historySnapshot
+      }).unwrap();
       if (res.success && res.reply) {
         setChatHistory(prev => [...prev, { sender: 'ai', text: res.reply }]);
       }
@@ -879,17 +1116,6 @@ function WorkspaceBoardContent({
 
             <Button
               variant="outline"
-              onClick={() => setAiChatOpen(true)}
-              className="rounded-xl border-indigo-200 dark:border-indigo-900 text-indigo-650 dark:text-indigo-400 hover:bg-indigo-50/50 cursor-pointer font-bold flex items-center gap-1.5"
-            >
-              <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
-              Ask AI
-            </Button>
-
-
-
-            <Button
-              variant="outline"
               onClick={() => setSummaryOpen(true)}
               className="rounded-xl cursor-pointer"
             >
@@ -913,19 +1139,39 @@ function WorkspaceBoardContent({
                       </p>
                     </div>
 
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setShowQuickAdd(false);
-                        setQuickAddTitle("");
-                        setQuickAddStory("");
-                        setAiTaskMode(false);
-                      }}
-                      className="h-8 w-8"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setDocImportOpen(true)}
+                        className="h-8 w-8 rounded-lg text-violet-650 hover:text-violet-755 hover:bg-violet-50/50 cursor-pointer"
+                        title="Sync with AI Document"
+                      >
+                        <FileText className="h-4 w-4 text-violet-500" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setAiChatOpen(true)}
+                        className="h-8 w-8 rounded-lg text-indigo-650 hover:text-indigo-750 hover:bg-indigo-50/50 cursor-pointer"
+                        title="Ask AI Assistant"
+                      >
+                        <Sparkles className="h-4 w-4 animate-pulse text-indigo-500" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setShowQuickAdd(false);
+                          setQuickAddTitle("");
+                          setQuickAddStory("");
+                          setAiTaskMode(false);
+                        }}
+                        className="h-8 w-8"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Toggle Mode */}
@@ -1050,28 +1296,39 @@ function WorkspaceBoardContent({
 
                 </div>
               ) : (
-                <Button
-                  onClick={() => setShowQuickAdd(true)}
-                  className="
-              h-11
-              rounded-xl
-              bg-gradient-to-r
-              from-indigo-600
-              to-violet-600
-              hover:from-indigo-700
-              hover:to-violet-700
-              shadow-md
-              hover:shadow-lg
-              transition-all
-              duration-200
-              px-5
-              font-semibold
-              cursor-pointer
-            "
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Task
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => setAiChatOpen(true)}
+                    className="h-11 rounded-xl border-indigo-200 dark:border-indigo-900 text-indigo-650 dark:text-indigo-400 hover:bg-indigo-50/50 cursor-pointer font-semibold flex items-center gap-1.5 px-4"
+                  >
+                    <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
+                    Ask AI
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowQuickAdd(true)}
+                    className="
+                      h-11
+                      rounded-xl
+                      bg-gradient-to-r
+                      from-indigo-600
+                      to-violet-600
+                      hover:from-indigo-700
+                      hover:to-violet-700
+                      shadow-md
+                      hover:shadow-lg
+                      transition-all
+                      duration-200
+                      px-5
+                      font-semibold
+                      cursor-pointer
+                    "
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Task
+                  </Button>
+                </div>
               )
             )}
           </div>
@@ -1390,9 +1647,9 @@ function WorkspaceBoardContent({
 
       {/* Board Chat Assistant Dialog */}
       <Dialog open={aiChatOpen} onOpenChange={setAiChatOpen}>
-        <DialogContent className="max-w-lg h-[80vh] flex flex-col p-0 overflow-hidden border border-border bg-card text-card-foreground shadow-2xl rounded-2xl">
+        <DialogContent className="max-w-lg! h-[80vh]! flex! flex-col! p-0! gap-0! overflow-hidden! border border-border bg-card text-card-foreground shadow-2xl rounded-2xl">
           {/* Header */}
-          <div className="p-4 border-b border-border flex items-center justify-between select-none bg-muted/30">
+          <div className="shrink-0 p-4 border-b border-border flex items-center justify-between select-none bg-muted/30">
             <div className="flex items-center gap-2">
               <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950 text-indigo-650 dark:text-indigo-400">
                 <BrainCircuit className="h-5 w-5 animate-pulse" />
@@ -1402,18 +1659,10 @@ function WorkspaceBoardContent({
                 <p className="text-[10px] text-muted-foreground">Ask questions about tasks, progress, or columns.</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setAiChatOpen(false)}
-              className="h-8 w-8 rounded-lg cursor-pointer"
-            >
-              <X className="h-4 w-4" />
-            </Button>
           </div>
 
-          {/* Chat Messages */}
-          <ScrollArea className="flex-1 p-4 bg-muted/10">
+          {/* Chat Messages - using native scroll for reliability */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/10">
             <div className="space-y-4">
               {chatHistory.map((chat, idx) => (
                 <div
@@ -1428,6 +1677,29 @@ function WorkspaceBoardContent({
                     }`}
                   >
                     <p className="whitespace-pre-line font-medium">{chat.text}</p>
+                    {/* Render table if present */}
+                    {chat.table && (
+                      <div className="mt-2 overflow-x-auto">
+                        <table className="w-full text-[11px] border-collapse">
+                          <thead>
+                            <tr>
+                              {chat.table.headers.map((h, hi) => (
+                                <th key={hi} className="text-left px-2 py-1.5 border-b border-border/50 font-bold text-muted-foreground whitespace-nowrap bg-muted/30">{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {chat.table.rows.map((row, ri) => (
+                              <tr key={ri} className="hover:bg-muted/20 transition-colors">
+                                {row.map((cell, ci) => (
+                                  <td key={ci} className="px-2 py-1.5 border-b border-border/30 whitespace-nowrap">{cell}</td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1439,11 +1711,12 @@ function WorkspaceBoardContent({
                   </div>
                 </div>
               )}
+              <div ref={chatEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Input Area */}
-          <div className="p-3 border-t border-border bg-card flex gap-2 items-center">
+          <div className="shrink-0 p-3 border-t border-border bg-card flex gap-2 items-center">
             <Input
               placeholder="Ask a question about this board..."
               value={chatMessage}
@@ -1464,7 +1737,18 @@ function WorkspaceBoardContent({
         </DialogContent>
       </Dialog>
 
-
+      {/* AI Document Sync Modal */}
+      {board?._id && (
+        <AIDocumentToBoardModal
+          open={docImportOpen}
+          onOpenChange={setDocImportOpen}
+          workspaceId={board.workspace}
+          boardId={board._id}
+          onComplete={() => {
+            // Sync triggers automatically
+          }}
+        />
+      )}
     </div>
   );
 }
