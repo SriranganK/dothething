@@ -1,7 +1,7 @@
 import { toast } from "sonner";
 // Home.tsx
 import { useEffect, useState, useMemo, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import type { WorkspaceType, BoardType } from "@/types/workspace";
 
@@ -45,6 +45,7 @@ import { LabelsManagement } from "@/Pages/LabelsManagement";
 import { TimelinePage } from "@/Pages/TimelinePage";
 import { MyCalendarPage } from "@/Pages/MyCalendarPage";
 import { MyTimelinePage } from "@/Pages/MyTimelinePage";
+import { ScratchBoardView } from "@/components/scratch/ScratchBoardView";
 
 // Task Views & Modals
 import { ListView } from "@/components/board/ListView";
@@ -52,7 +53,7 @@ import { CalendarView } from "@/components/board/CalendarView";
 import { TimelineView } from "@/components/board/TimelineView";
 import { ItemDetailModal } from "@/components/ItemDetailModal";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Settings } from "lucide-react";
+import { Briefcase, Settings, StickyNote } from "lucide-react";
 
 // UI Components for the local components / Dialog
 import { Button } from "@/components/ui/button";
@@ -71,9 +72,10 @@ import { useNotifications } from "@/components/NotificationProvider";
 export default function HomePage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const { user, token, isAuthenticated, loading: authLoading } = useAuth();
-  // Read workspace/board IDs from URL (present when user refreshes or shares a link)
-  const { workspaceId: urlWorkspaceId, boardId: urlBoardId, userId: urlUserId } = useParams<{ workspaceId?: string; boardId?: string; userId?: string }>();
+  // Read workspace/board/scratch IDs from URL (present when user refreshes or shares a link)
+  const { workspaceId: urlWorkspaceId, boardId: urlBoardId, userId: urlUserId, pageId: urlPageId } = useParams<{ workspaceId?: string; boardId?: string; userId?: string; pageId?: string }>();
 
   const justCreatedWorkspaceIdRef = useRef<string | null>(null);
 
@@ -236,6 +238,29 @@ export default function HomePage() {
     }
   }, [urlUserId]);
 
+  // Restore Scratch view from URL or query parameter on initial load / refresh
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const queryPageId = searchParams.get("page");
+    const targetPageId = urlPageId || queryPageId;
+
+    if (location.pathname.startsWith("/scratch") || queryPageId) {
+      if (activeView.type !== "scratch" || (targetPageId && activeView.pageId !== targetPageId)) {
+        dispatch(setActiveView({ type: "scratch", pageId: targetPageId || undefined }));
+        dispatch(setActiveTab("scratch"));
+      }
+    }
+  }, [location.pathname, location.search, urlPageId]);
+
+  // Synchronize activeTab with activeView
+  useEffect(() => {
+    if (activeView.type === "scratch") {
+      if (activeTab !== "scratch") dispatch(setActiveTab("scratch"));
+    } else {
+      if (activeTab !== "workspaces") dispatch(setActiveTab("workspaces"));
+    }
+  }, [activeView.type, activeTab, dispatch]);
+
   const { socket } = useNotifications();
 
   // Socket room join & listen for real-time workspace updates sync
@@ -363,26 +388,35 @@ export default function HomePage() {
         {/* Main Sidebar (Outer Sidebar - Fixed Icons on the Left) */}
         <MainSidebar
           activeTab={activeTab}
-          onTabChange={(tab) => dispatch(setActiveTab(tab))}
+          onTabChange={(tab) => {
+            dispatch(setActiveTab(tab));
+            if (tab === "scratch") {
+              dispatch(setActiveView({ type: "scratch" }));
+            } else if (tab === "workspaces" && activeView.type === "scratch") {
+              dispatch(setActiveView({ type: "dashboard" }));
+            }
+          }}
           onSettingsClick={() => dispatch(setShowSettingsModal(true))}
         />
 
         {/* Inner Sidebar + Content */}
         {/* Workspace Inner Sidebar */}
-            <WorkspaceSidebar
-              workspace={activeWorkspace}
-              workspaces={workspaces}
-              boards={boards}
-              activeView={activeView}
-              switchWorkspace={switchWorkspace}
-              openAddWorkspace={() => dispatch(setShowCreateModal(true))}
-              onGoToDashboard={() => dispatch(setActiveView({ type: "dashboard" }))}
-              onGoToProfile={() => dispatch(setActiveView({ type: "workspace-profile" }))}
-              onSelectBoard={handleSelectBoard}
-              onCreateBoard={() => dispatch(setShowBoardCreateModal(true))}
-              onDeleteBoard={handleDeleteBoard}
-              onNavigate={(view) => dispatch(setActiveView(view))}
-            />
+        {activeView.type !== "scratch" && (
+          <WorkspaceSidebar
+            workspace={activeWorkspace}
+            workspaces={workspaces}
+            boards={boards}
+            activeView={activeView}
+            switchWorkspace={switchWorkspace}
+            openAddWorkspace={() => dispatch(setShowCreateModal(true))}
+            onGoToDashboard={() => dispatch(setActiveView({ type: "dashboard" }))}
+            onGoToProfile={() => dispatch(setActiveView({ type: "workspace-profile" }))}
+            onSelectBoard={handleSelectBoard}
+            onCreateBoard={() => dispatch(setShowBoardCreateModal(true))}
+            onDeleteBoard={handleDeleteBoard}
+            onNavigate={(view) => dispatch(setActiveView(view))}
+          />
+        )}
 
             {/* Workspace Dashboard or Board Content */}
             {activeView.type === "board" ? (
@@ -541,6 +575,11 @@ export default function HomePage() {
                   setIsDetailOpen(true);
                 }}
               />
+            ) : activeView.type === "scratch" ? (
+              <ScratchBoardView
+                workspace={activeWorkspace}
+                initialPageId={activeView.pageId}
+              />
             ) : (
               <WorkspaceDashboard
                 user={user}
@@ -583,13 +622,29 @@ export default function HomePage() {
       {/* Mobile Bottom Navbar */}
       <div className="flex md:hidden fixed bottom-0 left-0 right-0 h-14 bg-card border-t border-border z-30 justify-around items-center px-4">
         <button
-          onClick={() => dispatch(setActiveTab("workspaces"))}
+          onClick={() => {
+            dispatch(setActiveTab("workspaces"));
+            dispatch(setActiveView({ type: "dashboard" }));
+          }}
           className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 ${
             activeTab === "workspaces" ? "text-primary font-bold" : "text-muted-foreground"
           }`}
         >
           <Briefcase className="h-4.5 w-4.5" />
           <span className="text-[9px]">Workspaces</span>
+        </button>
+
+        <button
+          onClick={() => {
+            dispatch(setActiveTab("scratch"));
+            dispatch(setActiveView({ type: "scratch" }));
+          }}
+          className={`flex flex-col items-center justify-center flex-1 h-full gap-0.5 ${
+            activeTab === "scratch" ? "text-primary font-bold" : "text-muted-foreground"
+          }`}
+        >
+          <StickyNote className="h-4.5 w-4.5" />
+          <span className="text-[9px]">Scratch Board</span>
         </button>
 
         <button

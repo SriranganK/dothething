@@ -569,7 +569,7 @@ export function WorkspaceDashboard({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-card text-card-foreground">
       <div className="flex-1 p-6 overflow-y-auto">
-        <div className="max-w-[1400px] mx-auto space-y-6">
+        <div className="max-w-350 mx-auto space-y-6">
           
           {/* Header Row: Good evening, Srirangan */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-2">
@@ -595,7 +595,7 @@ export function WorkspaceDashboard({
 
                   <Button
                     onClick={onCreateBoard}
-                    className="bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-200"
+                    className="bg-linear-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white font-bold h-10 px-5 rounded-xl cursor-pointer shadow-md hover:shadow-lg transition-all duration-200"
                   >
                     <Plus className="mr-1.5 h-4 w-4" />
                     New Board
@@ -607,7 +607,7 @@ export function WorkspaceDashboard({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Box 1: Workspace Overview (Boards, Tasks, Completed, Progress) */}
-            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[220px]">
+            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-55">
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <h3 className="font-bold text-foreground text-sm">Workspace Overview</h3>
                 <DropdownMenu>
@@ -657,7 +657,7 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">Boards</span>
-                    <div className="h-[3px] w-6 bg-primary rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-primary rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -670,7 +670,7 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">Tasks</span>
-                    <div className="h-[3px] w-6 bg-blue-500 rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-blue-500 rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -683,7 +683,7 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">Completed</span>
-                    <div className="h-[3px] w-6 bg-emerald-500 rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-emerald-500 rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -696,7 +696,7 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">Progress</span>
-                    <div className="h-[3px] w-6 bg-amber-500 rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-amber-500 rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -709,7 +709,7 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">Milestones</span>
-                    <div className="h-[3px] w-6 bg-violet-500 rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-violet-500 rounded-full mt-1.5" />
                   </div>
                 </div>
 
@@ -722,14 +722,14 @@ export function WorkspaceDashboard({
                   </span>
                   <div>
                     <span className="text-[10px] font-bold text-muted-foreground block">{activityLabel}</span>
-                    <div className="h-[3px] w-6 bg-rose-500 rounded-full mt-1.5" />
+                    <div className="h-0.75 w-6 bg-rose-500 rounded-full mt-1.5" />
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Box 2: Activity Feed (Matching circles layout) */}
-            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[220px]">
+            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-55">
               <div className="flex items-center justify-between pb-3 border-b border-border">
                 <h3 className="font-bold text-foreground text-sm">Activity Feed</h3>
                 <ActivityFeedPopover
@@ -783,7 +783,7 @@ export function WorkspaceDashboard({
             </div>
 
             {/* Box 3: Tabbed Widget Card (Top Performers, Milestones, Labels, Profile) */}
-            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-[220px]">
+            <div className="bg-card text-card-foreground border border-border rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] flex flex-col justify-between min-h-55">
               
               {/* Header Tab Toggles */}
               <div className="flex items-center justify-between pb-2 border-b border-border">
@@ -949,11 +949,11 @@ export function WorkspaceDashboard({
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Workspace:</span>
-                      <span className="font-bold text-foreground truncate max-w-[140px]">{workspace?.name || "Best Workspace"}</span>
+                      <span className="font-bold text-foreground truncate max-w-350-">{workspace?.name || "Best Workspace"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Owner:</span>
-                      <span className="font-bold text-foreground truncate max-w-[140px]">
+                      <span className="font-bold text-foreground truncate max-w-350-">
                         {typeof workspace?.owner === "string" ? workspace.owner : workspace?.owner?.name || "Srirangan"}
                       </span>
                     </div>
@@ -1031,7 +1031,7 @@ export function WorkspaceDashboard({
                     placeholder="Search boards..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 bg-card text-card-foreground border-border rounded-xl text-foreground focus-visible:ring-ring/20 focus-visible:border-primary/50 text-xs h-9 w-52"
+                    className="pl-8 bg-card text-card-foreground border-border rounded-xl focus-visible:ring-ring/20 focus-visible:border-primary/50 text-xs h-9 w-52"
                   />
                 </div>
 
@@ -1064,7 +1064,7 @@ export function WorkspaceDashboard({
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"
-                      className="border-border rounded-xl text-xs text-muted-foreground font-bold h-9 px-3 bg-card text-card-foreground"
+                      className="border-border rounded-xl text-xs text-muted-foreground font-bold h-9 px-3 bg-card"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
                       Filter

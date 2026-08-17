@@ -1,10 +1,9 @@
-// src/components/MainSidebar.tsx
-import { Briefcase, Settings } from "lucide-react";
-
+import { Briefcase, Settings, StickyNote } from "lucide-react";
+import type { TabType } from "@/store/slices/uiSlice";
 
 interface MainSidebarProps {
-  activeTab: "workspaces";
-  onTabChange: (tab: "workspaces") => void;
+  activeTab: TabType;
+  onTabChange: (tab: TabType) => void;
   onSettingsClick?: () => void;
 }
 
@@ -16,6 +15,13 @@ export function MainSidebar({ activeTab, onTabChange, onSettingsClick }: MainSid
       label: "Workspaces",
       icon: Briefcase,
       tooltip: "Active Workspaces",
+      badge: undefined as string | undefined,
+    },
+    {
+      id: "scratch",
+      label: "Scratch Board",
+      icon: StickyNote,
+      tooltip: "Scratch Board",
       badge: undefined as string | undefined,
     },
   ];

@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 
-export type TabType = 'workspaces';
+export type TabType = 'workspaces' | 'scratch';
 
 export type ViewType =
   | { type: 'dashboard' }
@@ -13,7 +13,8 @@ export type ViewType =
   | { type: 'labels' }
   | { type: 'timeline' }
   | { type: 'my-tasks' }
-  | { type: 'calendar' };
+  | { type: 'calendar' }
+  | { type: 'scratch'; pageId?: string };
 
 interface UIState {
   activeTab: TabType;

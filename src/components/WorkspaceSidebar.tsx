@@ -43,6 +43,7 @@ import {
   Star,
   User,
   Settings,
+  StickyNote,
 } from "lucide-react";
 import type { WorkspaceType, BoardType } from "@/types/workspace";
 import type { ViewType } from "@/store/slices/uiSlice";
