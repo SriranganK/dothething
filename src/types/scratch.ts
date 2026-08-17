@@ -92,3 +92,16 @@ export interface ScratchShareToken {
   createdBy: string;
   createdAt: string;
 }
+
+export interface ScratchCollaborator {
+  _id?: string;
+  user: {
+    _id: string;
+    name?: string;
+    email?: string;
+    avatar?: string;
+  };
+  role: 'editor' | 'commenter' | 'viewer';
+  addedAt: string;
+}
+

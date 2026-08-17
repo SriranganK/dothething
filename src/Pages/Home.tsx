@@ -578,7 +578,13 @@ export default function HomePage() {
             ) : activeView.type === "scratch" ? (
               <ScratchBoardView
                 workspace={activeWorkspace}
+                workspaces={workspaces}
                 initialPageId={activeView.pageId}
+                onSwitchWorkspace={(ws) => {
+                  dispatch(setActiveWorkspaceId(ws._id));
+                  dispatch(setActiveView({ type: "scratch" }));
+                }}
+                onCreateWorkspace={() => dispatch(setShowCreateModal(true))}
               />
             ) : (
               <WorkspaceDashboard

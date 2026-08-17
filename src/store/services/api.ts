@@ -1,7 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type { WorkspaceType, BoardType, ItemType, ColumnType, AttachmentType } from '@/types/workspace';
-import type { ScratchPage, ScratchBlock, ScratchComment, ScratchShareToken } from '@/types/scratch';
+import type { ScratchPage, ScratchBlock, ScratchComment, ScratchShareToken, ScratchCollaborator } from '@/types/scratch';
 import type { RootState } from '../index';
 import { clearCredentials } from '../slices/authSlice';
 import { API_BASE_URL } from '@/config';
@@ -33,7 +33,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const backendApi = createApi({
   reducerPath: 'backendApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Workspace', 'Board', 'Item', 'Activity', 'Notification', 'Milestone', 'Label', 'SavedView', 'ScratchPage', 'ScratchBlock', 'ScratchComment', 'ScratchShareToken'],
+  tagTypes: ['Workspace', 'Board', 'Item', 'Activity', 'Notification', 'Milestone', 'Label', 'SavedView', 'ScratchPage', 'ScratchBlock', 'ScratchComment', 'ScratchShareToken', 'ScratchCollaborator'],
   endpoints: (builder) => ({
     // WORKSPACES
     getWorkspaces: builder.query<{ workspaces: WorkspaceType[] }, void>({
@@ -695,6 +695,38 @@ export const backendApi = createApi({
         body,
       }),
     }),
+
+    // Scratch Page Collaborators & User Search
+    getScratchCollaborators: builder.query<{ owner: any; collaborators: ScratchCollaborator[] }, string>({
+      query: (pageId) => `/scratch/pages/${pageId}/collaborators`,
+      providesTags: ['ScratchCollaborator'],
+    }),
+    addScratchCollaborator: builder.mutation<{ message: string; collaborators: ScratchCollaborator[] }, { pageId: string; email: string; role: 'editor' | 'commenter' | 'viewer' }>({
+      query: ({ pageId, email, role }) => ({
+        url: `/scratch/pages/${pageId}/collaborators`,
+        method: 'POST',
+        body: { email, role },
+      }),
+      invalidatesTags: ['ScratchCollaborator', 'ScratchPage'],
+    }),
+    updateScratchCollaboratorRole: builder.mutation<{ collaborators: ScratchCollaborator[] }, { pageId: string; userId: string; role: 'editor' | 'commenter' | 'viewer' }>({
+      query: ({ pageId, userId, role }) => ({
+        url: `/scratch/pages/${pageId}/collaborators/${userId}`,
+        method: 'PATCH',
+        body: { role },
+      }),
+      invalidatesTags: ['ScratchCollaborator'],
+    }),
+    removeScratchCollaborator: builder.mutation<{ message: string; collaborators: ScratchCollaborator[] }, { pageId: string; userId: string }>({
+      query: ({ pageId, userId }) => ({
+        url: `/scratch/pages/${pageId}/collaborators/${userId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchCollaborator', 'ScratchPage'],
+    }),
+    searchUsers: builder.query<{ users: Array<{ _id: string; name: string; email: string }> }, string>({
+      query: (q) => `/users/search?q=${encodeURIComponent(q)}`,
+    }),
   }),
 });
 
@@ -794,5 +826,10 @@ export const {
   useDeleteScratchShareTokenMutation,
   useGetPublicScratchPageQuery,
   useUpdatePublicScratchBlockMutation,
+  useGetScratchCollaboratorsQuery,
+  useAddScratchCollaboratorMutation,
+  useUpdateScratchCollaboratorRoleMutation,
+  useRemoveScratchCollaboratorMutation,
+  useSearchUsersQuery,
 } = backendApi;
 

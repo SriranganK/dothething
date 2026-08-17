@@ -9,12 +9,18 @@ import { toast } from 'sonner';
 
 interface ScratchBoardViewProps {
   workspace: WorkspaceType | null;
+  workspaces?: WorkspaceType[];
   initialPageId?: string;
+  onSwitchWorkspace?: (ws: WorkspaceType) => void;
+  onCreateWorkspace?: () => void;
 }
 
 export const ScratchBoardView: React.FC<ScratchBoardViewProps> = ({
   workspace,
+  workspaces = [],
   initialPageId,
+  onSwitchWorkspace,
+  onCreateWorkspace,
 }) => {
   const workspaceId = workspace?._id || '';
 
@@ -153,8 +159,15 @@ export const ScratchBoardView: React.FC<ScratchBoardViewProps> = ({
       {/* Secondary Notion Sidebar */}
       <ScratchPageSidebar
         workspaceId={workspaceId}
+        currentWorkspace={workspace}
+        workspaces={workspaces}
         activePageId={activePageId}
         onSelectPage={(pageId) => setActivePageId(pageId)}
+        onSwitchWorkspace={(ws) => {
+          setActivePageId(undefined);
+          if (onSwitchWorkspace) onSwitchWorkspace(ws);
+        }}
+        onCreateWorkspace={onCreateWorkspace}
       />
 
       {/* Editor Canvas or Empty State */}

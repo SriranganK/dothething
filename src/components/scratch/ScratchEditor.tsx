@@ -113,7 +113,7 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   const { socket } = useNotifications();
   const { user } = useAuth();
 
-  // Socket room join & listen for real-time block updates
+  // Socket room join & listen for real-time block & page updates
   useEffect(() => {
     if (socket && pageId) {
       socket.emit('scratch:join', pageId);
@@ -129,10 +129,42 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         }
       };
 
+      const handleRemoteBlockCreated = (data: any) => {
+        if (data?.senderId && user && data.senderId === user.id) return;
+        if (data?.block) {
+          setBlocks((prev) => {
+            if (prev.some((b) => b._id === data.block._id)) return prev;
+            return [...prev, data.block];
+          });
+        }
+      };
+
+      const handleRemoteBlockDeleted = (data: any) => {
+        if (data?.senderId && user && data.senderId === user.id) return;
+        if (data?.blockId) {
+          setBlocks((prev) => prev.filter((b) => b._id !== data.blockId));
+        }
+      };
+
+      const handleRemotePageUpdated = (data: any) => {
+        if (data?.senderId && user && data.senderId === user.id) return;
+        if (data?.page) {
+          if (data.page.title !== undefined) setTitle(data.page.title);
+          if (data.page.icon !== undefined) setIcon(data.page.icon);
+          if (data.page.cover !== undefined) setCover(data.page.cover);
+        }
+      };
+
       socket.on('scratch:block-updated', handleRemoteBlockUpdate);
+      socket.on('scratch:block-created', handleRemoteBlockCreated);
+      socket.on('scratch:block-deleted', handleRemoteBlockDeleted);
+      socket.on('scratch:page-updated', handleRemotePageUpdated);
 
       return () => {
         socket.off('scratch:block-updated', handleRemoteBlockUpdate);
+        socket.off('scratch:block-created', handleRemoteBlockCreated);
+        socket.off('scratch:block-deleted', handleRemoteBlockDeleted);
+        socket.off('scratch:page-updated', handleRemotePageUpdated);
         socket.emit('scratch:leave', pageId);
       };
     }

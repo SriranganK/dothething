@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   useGetPublicScratchPageQuery,
   useUpdatePublicScratchBlockMutation,
 } from '@/store/services/api';
-import type { ScratchBlock } from '@/types/scratch';
-import { Button } from '@/components/ui/button';
-import { Lock, Eye, Edit3, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
+import type { ScratchBlock, BlockType, ScratchBlockProperties } from '@/types/scratch';
+import { BlockRenderer } from './BlockRenderer';
+import { Eye, Edit3, Clock, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { useNotifications } from '@/components/NotificationProvider';
 
 interface PublicScratchViewProps {
   token: string;
@@ -15,6 +15,7 @@ interface PublicScratchViewProps {
 export const PublicScratchView: React.FC<PublicScratchViewProps> = ({ token }) => {
   const { data, isLoading, isError, error } = useGetPublicScratchPageQuery(token, { skip: !token });
   const [updatePublicBlock] = useUpdatePublicScratchBlockMutation();
+  const { socket } = useNotifications();
 
   const page = data?.page;
   const serverBlocks = data?.blocks || [];
@@ -22,24 +23,80 @@ export const PublicScratchView: React.FC<PublicScratchViewProps> = ({ token }) =
   const expiresAt = data?.expiresAt;
 
   const [blocks, setBlocks] = useState<ScratchBlock[]>([]);
+  const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
+
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
-    if (serverBlocks) {
+    if (serverBlocks && serverBlocks.length > 0 && !isInitializedRef.current) {
       setBlocks(serverBlocks);
+      isInitializedRef.current = true;
     }
   }, [serverBlocks]);
 
-  const handleUpdateBlockContent = async (blockId: string, content: string) => {
-    if (role !== 'editor') return;
-    setBlocks((prev) =>
-      prev.map((b) => (b._id === blockId ? { ...b, content } : b))
-    );
-    try {
-      await updatePublicBlock({ token, blockId, body: { content } }).unwrap();
-    } catch (err) {
-      console.error('Failed to update public block:', err);
+  // Socket room join & listen for real-time block updates
+  useEffect(() => {
+    if (socket && page?._id) {
+      socket.emit('scratch:join', page._id);
+
+      const handleRemoteBlockUpdate = (data: any) => {
+        if (data?.block) {
+          setBlocks((prev) =>
+            prev.map((b) => (b._id === data.block._id ? data.block : b))
+          );
+        }
+      };
+
+      socket.on('scratch:block-updated', handleRemoteBlockUpdate);
+
+      return () => {
+        socket.off('scratch:block-updated', handleRemoteBlockUpdate);
+        socket.emit('scratch:leave', page._id);
+      };
     }
-  };
+  }, [socket, page?._id]);
+
+  const blockDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
+  const handleUpdateBlockContent = useCallback(
+    (blockId: string, content: string) => {
+      if (role !== 'editor') return;
+      setBlocks((prev) =>
+        prev.map((b) => (b._id === blockId ? { ...b, content } : b))
+      );
+
+      if (blockDebounceTimers.current[blockId]) {
+        clearTimeout(blockDebounceTimers.current[blockId]);
+      }
+
+      blockDebounceTimers.current[blockId] = setTimeout(() => {
+        updatePublicBlock({ token, blockId, body: { content } });
+      }, 250);
+    },
+    [role, token, updatePublicBlock]
+  );
+
+  const handleUpdateBlockProperties = useCallback(
+    (blockId: string, properties: ScratchBlockProperties) => {
+      if (role !== 'editor') return;
+      setBlocks((prev) =>
+        prev.map((b) => (b._id === blockId ? { ...b, properties } : b))
+      );
+      updatePublicBlock({ token, blockId, body: { properties } });
+    },
+    [role, token, updatePublicBlock]
+  );
+
+  const handleChangeBlockType = useCallback(
+    (blockId: string, type: BlockType) => {
+      if (role !== 'editor') return;
+      setBlocks((prev) =>
+        prev.map((b) => (b._id === blockId ? { ...b, type } : b))
+      );
+      updatePublicBlock({ token, blockId, body: { type } });
+    },
+    [role, token, updatePublicBlock]
+  );
 
   if (isLoading) {
     return (
@@ -88,29 +145,26 @@ export const PublicScratchView: React.FC<PublicScratchViewProps> = ({ token }) =
         </div>
       </div>
 
-      {/* Main Document Content */}
-      <div className="max-w-3xl w-full mx-auto px-8 py-10 flex-1">
+      {/* Main Document Content with Full Slate & BlockRenderer */}
+      <div className="max-w-3xl w-full mx-auto px-8 py-10 flex-1 flex flex-col">
         {page.icon && <div className="text-4xl mb-4 select-none">{page.icon}</div>}
         <h1 className="text-3xl font-extrabold text-foreground mb-8 tracking-tight">{page.title || 'Untitled'}</h1>
 
-        <div className="space-y-3">
-          {blocks.map((block) => (
-            <div key={block._id} className="py-1">
-              {role === 'editor' ? (
-                <div
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={(e) => handleUpdateBlockContent(block._id, e.currentTarget.innerHTML)}
-                  dangerouslySetInnerHTML={{ __html: block.content || '' }}
-                  className="w-full bg-transparent text-foreground outline-none border-b border-transparent focus:border-border py-1 text-sm leading-relaxed"
-                />
-              ) : (
-                <div
-                  dangerouslySetInnerHTML={{ __html: block.content || '<br>' }}
-                  className="text-sm text-foreground leading-relaxed py-1"
-                />
-              )}
-            </div>
+        <div className="space-y-1 flex-1 pb-24">
+          {blocks.map((block, index) => (
+            <BlockRenderer
+              key={block._id}
+              block={block}
+              blockIndex={index}
+              onUpdateContent={handleUpdateBlockContent}
+              onUpdateProperties={handleUpdateBlockProperties}
+              onChangeType={handleChangeBlockType}
+              onDeleteBlock={() => {}}
+              onCreateBlockBelow={() => {}}
+              onDuplicateBlock={() => {}}
+              isFocused={focusedBlockId === block._id}
+              onFocus={() => setFocusedBlockId(block._id)}
+            />
           ))}
         </div>
       </div>

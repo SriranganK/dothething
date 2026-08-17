@@ -7,6 +7,7 @@ import {
   useDuplicateScratchPageMutation,
 } from '@/store/services/api';
 import type { ScratchPage } from '@/types/scratch';
+import type { WorkspaceType } from '@/types/workspace';
 import { useAuth } from '@/context/AuthContext';
 import {
   Plus,
@@ -24,11 +25,13 @@ import {
   Globe,
   Users,
   Folder,
+  Check,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuSub,
@@ -48,14 +51,22 @@ import { toast } from 'sonner';
 
 interface ScratchPageSidebarProps {
   workspaceId: string;
+  currentWorkspace?: WorkspaceType | null;
+  workspaces?: WorkspaceType[];
   activePageId?: string;
   onSelectPage: (pageId: string) => void;
+  onSwitchWorkspace?: (ws: WorkspaceType) => void;
+  onCreateWorkspace?: () => void;
 }
 
 export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
   workspaceId,
+  currentWorkspace,
+  workspaces = [],
   activePageId,
   onSelectPage,
+  onSwitchWorkspace,
+  onCreateWorkspace,
 }) => {
   const { user } = useAuth();
   const { data, isLoading } = useGetScratchPagesQuery(workspaceId, { skip: !workspaceId });
@@ -80,6 +91,8 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
     const shared: ScratchPage[] = [];
     const childMap: Record<string, ScratchPage[]> = {};
 
+    const currentUserId = user?.id || user?._id;
+
     pages.forEach((p) => {
       if (p.isFavorite) favs.push(p);
 
@@ -88,9 +101,12 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
         childMap[p.parentPageId].push(p);
       } else {
         const vis = p.visibility || 'private';
+        const pageCreatorId = typeof p.createdBy === 'object' ? (p.createdBy as any)?._id : p.createdBy;
+        const isCreatedByMe = currentUserId && String(pageCreatorId) === String(currentUserId);
+
         if (vis === 'workspace' || vis === 'public') {
           workspaces.push(p);
-        } else if (vis === 'shared') {
+        } else if (!isCreatedByMe || vis === 'shared') {
           shared.push(p);
         } else {
           privates.push(p);
@@ -105,7 +121,8 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
       sharedRootPages: shared,
       childPagesMap: childMap,
     };
-  }, [pages]);
+  }, [pages, user]);
+
 
   const filteredPages = useMemo(() => {
     if (!search.trim()) return null;
@@ -316,20 +333,87 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
 
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col h-full shrink-0 select-none text-foreground">
-      {/* Sidebar Top Header */}
-      <div className="p-3 border-b border-border flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1 rounded-md bg-primary/10 text-primary">
-            <FileText className="h-4 w-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold tracking-tight">Scratch Board</h2>
-            <p className="text-[10px] text-muted-foreground">Personal & Team Workspace</p>
-          </div>
-        </div>
+      {/* Sidebar Top Header: Jira-style Workspace Selector Dropdown */}
+      <div className="p-3 border-b border-border flex items-center justify-between gap-2">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 flex-1 min-w-0 p-1.5 hover:bg-muted/80 rounded-xl transition-all cursor-pointer text-left border border-transparent hover:border-border group focus:outline-none">
+              <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center text-xs font-bold text-white uppercase shrink-0 shadow-xs">
+                {currentWorkspace?.name
+                  ? currentWorkspace.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2)
+                  : "WS"}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1">
+                  <h2 className="text-xs font-bold text-foreground truncate group-hover:text-primary transition-colors">
+                    {currentWorkspace?.name || "Workspace"}
+                  </h2>
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground shrink-0 transition-transform duration-200" />
+                </div>
+                <p className="text-[10px] text-muted-foreground truncate">
+                  Scratch Board
+                </p>
+              </div>
+            </button>
+          </DropdownMenuTrigger>
+
+          <DropdownMenuContent align="start" className="w-60 bg-popover border-border text-popover-foreground shadow-xl p-1 z-50">
+            <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1.5">
+              Workspaces
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-border" />
+
+            <div className="max-h-60 overflow-y-auto space-y-0.5 py-1">
+              {workspaces && workspaces.length > 0 ? (
+                workspaces.map((ws) => {
+                  const isSelected = ws._id === (currentWorkspace?._id || workspaceId);
+                  const wsInitials = ws.name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+                  return (
+                    <DropdownMenuItem
+                      key={ws._id}
+                      onClick={() => onSwitchWorkspace && onSwitchWorkspace(ws)}
+                      className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg cursor-pointer transition-colors ${
+                        isSelected
+                          ? "bg-primary/10 text-primary font-medium"
+                          : "hover:bg-muted text-foreground"
+                      }`}
+                    >
+                      <div className="w-6 h-6 bg-primary/20 text-primary rounded-md flex items-center justify-center text-[10px] font-extrabold uppercase shrink-0">
+                        {wsInitials}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs truncate font-medium">{ws.name}</p>
+                        {ws.type && <p className="text-[10px] text-muted-foreground truncate">{ws.type}</p>}
+                      </div>
+                      {isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0 ml-auto" />}
+                    </DropdownMenuItem>
+                  );
+                })
+              ) : (
+                <div className="px-3 py-2 text-xs text-muted-foreground italic">No workspaces available</div>
+              )}
+            </div>
+
+            {onCreateWorkspace && (
+              <>
+                <DropdownMenuSeparator className="bg-border" />
+                <DropdownMenuItem
+                  onClick={onCreateWorkspace}
+                  className="flex items-center gap-2 px-2.5 py-2 rounded-lg cursor-pointer hover:bg-primary/10 text-primary font-medium text-xs transition-colors"
+                >
+                  <div className="w-6 h-6 rounded-md border border-dashed border-primary flex items-center justify-center shrink-0">
+                    <Plus className="h-3.5 w-3.5" />
+                  </div>
+                  <span>Create Workspace</span>
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <button
           onClick={() => handleCreateNewPage(null, 'private')}
-          className="p-1 hover:bg-muted rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer shrink-0 border border-transparent hover:border-border"
           title="Create New Page"
         >
           <Plus className="h-4 w-4" />
