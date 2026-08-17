@@ -1,7 +1,8 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ExternalLink } from 'lucide-react';
 import type { ScratchBlockProperties } from '@/types/scratch';
+import { SlateBlockInput } from './SlateBlockInput';
 
 interface TodoBlockProps {
   content: string;
@@ -10,6 +11,8 @@ interface TodoBlockProps {
   onChangeProperties: (props: ScratchBlockProperties) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   autoFocus?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export const TodoBlock: React.FC<TodoBlockProps> = ({
@@ -19,27 +22,9 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
   onChangeProperties,
   onKeyDown,
   autoFocus = false,
+  onFocus,
+  onBlur,
 }) => {
-  const divRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (divRef.current && divRef.current.innerHTML !== content) {
-      divRef.current.innerHTML = content || '';
-    }
-  }, [content]);
-
-  useEffect(() => {
-    if (autoFocus && divRef.current) {
-      divRef.current.focus();
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(divRef.current);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-  }, [autoFocus]);
-
   const isChecked = !!properties.checked;
   const isLinkedToTask = properties.linkedEntityType === 'task' && properties.linkedEntityId;
 
@@ -57,14 +42,15 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
         />
       </div>
       <div className="flex-1 min-w-0 flex items-center gap-2">
-        <div
-          ref={divRef}
-          contentEditable
-          suppressContentEditableWarning
-          onInput={(e) => onChangeContent(e.currentTarget.innerHTML)}
+        <SlateBlockInput
+          content={content}
+          onChange={onChangeContent}
           onKeyDown={onKeyDown}
-          data-placeholder="To-do..."
-          className={`w-full bg-transparent text-foreground outline-none border-none py-0.5 text-sm leading-relaxed min-h-[26px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50 cursor-text ${
+          placeholder="To-do..."
+          autoFocus={autoFocus}
+          onFocus={onFocus}
+          onBlur={onBlur}
+          className={`w-full bg-transparent text-foreground outline-none border-none py-0.5 text-sm leading-relaxed min-h-[26px] cursor-text ${
             isChecked ? 'line-through text-muted-foreground/70' : ''
           }`}
         />
@@ -81,3 +67,4 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
     </div>
   );
 };
+

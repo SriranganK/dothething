@@ -97,9 +97,16 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     }
   }, [page]);
 
+  const isInitializedRef = useRef(false);
+
   useEffect(() => {
-    if (serverBlocks) {
+    isInitializedRef.current = false;
+  }, [pageId]);
+
+  useEffect(() => {
+    if (serverBlocks && serverBlocks.length > 0 && !isInitializedRef.current) {
       setBlocks(serverBlocks);
+      isInitializedRef.current = true;
     }
   }, [serverBlocks]);
 

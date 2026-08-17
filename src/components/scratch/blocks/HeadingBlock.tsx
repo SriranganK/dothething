@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import { SlateBlockInput } from './SlateBlockInput';
 
 interface HeadingBlockProps {
   level: 1 | 2 | 3;
@@ -7,6 +8,8 @@ interface HeadingBlockProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export const HeadingBlock: React.FC<HeadingBlockProps> = ({
@@ -16,27 +19,9 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
   onKeyDown,
   placeholder,
   autoFocus = false,
+  onFocus,
+  onBlur,
 }) => {
-  const divRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (divRef.current && divRef.current.innerHTML !== content) {
-      divRef.current.innerHTML = content || '';
-    }
-  }, [content]);
-
-  useEffect(() => {
-    if (autoFocus && divRef.current) {
-      divRef.current.focus();
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(divRef.current);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-  }, [autoFocus]);
-
   const levelStyles = {
     1: 'text-2xl font-bold text-foreground mt-4 mb-1 tracking-tight',
     2: 'text-xl font-bold text-foreground mt-3 mb-1 tracking-tight',
@@ -50,14 +35,16 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
   };
 
   return (
-    <div
-      ref={divRef}
-      contentEditable
-      suppressContentEditableWarning
-      onInput={(e) => onChange(e.currentTarget.innerHTML)}
+    <SlateBlockInput
+      content={content}
+      onChange={onChange}
       onKeyDown={onKeyDown}
-      data-placeholder={placeholder || defaultPlaceholders[level]}
-      className={`w-full bg-transparent outline-none border-none py-0.5 leading-snug min-h-[32px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/40 cursor-text ${levelStyles[level]}`}
+      placeholder={placeholder || defaultPlaceholders[level]}
+      autoFocus={autoFocus}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      className={`w-full bg-transparent outline-none border-none py-0.5 leading-snug min-h-[32px] cursor-text ${levelStyles[level]}`}
     />
   );
 };
+

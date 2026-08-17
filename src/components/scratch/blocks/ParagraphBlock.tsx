@@ -1,4 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
+import { SlateBlockInput } from './SlateBlockInput';
 
 interface ParagraphBlockProps {
   content: string;
@@ -6,6 +7,8 @@ interface ParagraphBlockProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   placeholder?: string;
   autoFocus?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export const ParagraphBlock: React.FC<ParagraphBlockProps> = ({
@@ -14,37 +17,20 @@ export const ParagraphBlock: React.FC<ParagraphBlockProps> = ({
   onKeyDown,
   placeholder = "Type '/' for commands or start writing...",
   autoFocus = false,
+  onFocus,
+  onBlur,
 }) => {
-  const divRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (divRef.current && divRef.current.innerHTML !== content) {
-      divRef.current.innerHTML = content || '';
-    }
-  }, [content]);
-
-  useEffect(() => {
-    if (autoFocus && divRef.current) {
-      divRef.current.focus();
-      // Move cursor to end
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(divRef.current);
-      range.collapse(false);
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    }
-  }, [autoFocus]);
-
   return (
-    <div
-      ref={divRef}
-      contentEditable
-      suppressContentEditableWarning
-      onInput={(e) => onChange(e.currentTarget.innerHTML)}
+    <SlateBlockInput
+      content={content}
+      onChange={onChange}
       onKeyDown={onKeyDown}
-      data-placeholder={placeholder}
-      className="w-full bg-transparent text-foreground outline-none border-none py-1 text-sm leading-relaxed font-normal min-h-[28px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground/50 cursor-text"
+      placeholder={placeholder}
+      autoFocus={autoFocus}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      className="w-full bg-transparent text-foreground outline-none border-none py-1 text-sm leading-relaxed font-normal min-h-[28px] cursor-text"
     />
   );
 };
+
