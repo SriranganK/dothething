@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 import type { BaseQueryFn, FetchArgs, FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import type { WorkspaceType, BoardType, ItemType, ColumnType, AttachmentType } from '@/types/workspace';
+import type { ScratchPage, ScratchBlock, ScratchComment, ScratchShareToken } from '@/types/scratch';
 import type { RootState } from '../index';
 import { clearCredentials } from '../slices/authSlice';
 import { API_BASE_URL } from '@/config';
@@ -32,7 +33,7 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
 export const backendApi = createApi({
   reducerPath: 'backendApi',
   baseQuery: baseQueryWithReauth,
-  tagTypes: ['Workspace', 'Board', 'Item', 'Activity', 'Notification', 'Milestone', 'Label', 'SavedView'],
+  tagTypes: ['Workspace', 'Board', 'Item', 'Activity', 'Notification', 'Milestone', 'Label', 'SavedView', 'ScratchPage', 'ScratchBlock', 'ScratchComment', 'ScratchShareToken'],
   endpoints: (builder) => ({
     // WORKSPACES
     getWorkspaces: builder.query<{ workspaces: WorkspaceType[] }, void>({
@@ -550,6 +551,150 @@ export const backendApi = createApi({
         method: 'POST'
       })
     }),
+
+    // SCRATCH BOARD
+    getScratchPages: builder.query<{ pages: ScratchPage[] }, string>({
+      query: (workspaceId) => `/scratch/pages?workspaceId=${workspaceId}`,
+      providesTags: ['ScratchPage'],
+    }),
+    getScratchPage: builder.query<{ page: ScratchPage; blocks: ScratchBlock[] }, string>({
+      query: (id) => `/scratch/pages/${id}`,
+      providesTags: ['ScratchPage', 'ScratchBlock'],
+    }),
+    createScratchPage: builder.mutation<{ page: ScratchPage; blocks: ScratchBlock[] }, { workspaceId: string; title?: string; icon?: string; cover?: string; parentPageId?: string | null; visibility?: string }>({
+      query: (body) => ({
+        url: '/scratch/pages',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['ScratchPage', 'ScratchBlock'],
+    }),
+    updateScratchPage: builder.mutation<{ page: ScratchPage }, { id: string; body: Partial<ScratchPage> }>({
+      query: ({ id, body }) => ({
+        url: `/scratch/pages/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['ScratchPage'],
+    }),
+    deleteScratchPage: builder.mutation<{ message: string; deletedPageIds: string[] }, string>({
+      query: (id) => ({
+        url: `/scratch/pages/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchPage', 'ScratchBlock'],
+    }),
+    duplicateScratchPage: builder.mutation<{ page: ScratchPage; blocks: ScratchBlock[] }, string>({
+      query: (id) => ({
+        url: `/scratch/pages/${id}/duplicate`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['ScratchPage', 'ScratchBlock'],
+    }),
+    getScratchBlocks: builder.query<{ blocks: ScratchBlock[] }, string>({
+      query: (pageId) => `/scratch/pages/${pageId}/blocks`,
+      providesTags: ['ScratchBlock'],
+    }),
+    createScratchBlock: builder.mutation<{ block: ScratchBlock }, { pageId: string; body: { type?: string; content?: string; properties?: any; afterBlockId?: string } }>({
+      query: ({ pageId, body }) => ({
+        url: `/scratch/pages/${pageId}/blocks`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
+    updateScratchBlock: builder.mutation<{ block: ScratchBlock }, { blockId: string; body: { type?: string; content?: string; properties?: any; order?: number } }>({
+      query: ({ blockId, body }) => ({
+        url: `/scratch/blocks/${blockId}`,
+        method: 'PATCH',
+        body,
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
+    deleteScratchBlock: builder.mutation<{ message: string; blockId: string }, string>({
+      query: (blockId) => ({
+        url: `/scratch/blocks/${blockId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
+    reorderScratchBlocks: builder.mutation<{ message: string }, { pageId: string; blocks: { id: string; order: number }[] }>({
+      query: ({ pageId, blocks }) => ({
+        url: `/scratch/pages/${pageId}/blocks/reorder`,
+        method: 'POST',
+        body: { blocks },
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
+
+    // Scratch Comments
+    getScratchComments: builder.query<{ comments: ScratchComment[] }, string>({
+      query: (pageId) => `/scratch/pages/${pageId}/comments`,
+      providesTags: ['ScratchComment'],
+    }),
+    createScratchComment: builder.mutation<{ comment: ScratchComment }, { pageId: string; blockId?: string | null; content: string }>({
+      query: ({ pageId, blockId, content }) => ({
+        url: `/scratch/pages/${pageId}/comments`,
+        method: 'POST',
+        body: { blockId, content },
+      }),
+      invalidatesTags: ['ScratchComment'],
+    }),
+    replyScratchComment: builder.mutation<{ comment: ScratchComment }, { commentId: string; content: string }>({
+      query: ({ commentId, content }) => ({
+        url: `/scratch/comments/${commentId}/reply`,
+        method: 'POST',
+        body: { content },
+      }),
+      invalidatesTags: ['ScratchComment'],
+    }),
+    resolveScratchComment: builder.mutation<{ comment: ScratchComment }, string>({
+      query: (commentId) => ({
+        url: `/scratch/comments/${commentId}/resolve`,
+        method: 'PATCH',
+      }),
+      invalidatesTags: ['ScratchComment'],
+    }),
+    deleteScratchComment: builder.mutation<{ message: string; commentId: string }, string>({
+      query: (commentId) => ({
+        url: `/scratch/comments/${commentId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchComment'],
+    }),
+
+    // Scratch Share Tokens
+    getScratchShareTokens: builder.query<{ tokens: ScratchShareToken[] }, string>({
+      query: (pageId) => `/scratch/pages/${pageId}/share-tokens`,
+      providesTags: ['ScratchShareToken'],
+    }),
+    createScratchShareToken: builder.mutation<{ shareToken: ScratchShareToken }, { pageId: string; role: 'viewer' | 'editor'; expiresInHours?: number | null }>({
+      query: ({ pageId, role, expiresInHours }) => ({
+        url: `/scratch/pages/${pageId}/share-tokens`,
+        method: 'POST',
+        body: { role, expiresInHours },
+      }),
+      invalidatesTags: ['ScratchShareToken'],
+    }),
+    deleteScratchShareToken: builder.mutation<{ message: string; tokenId: string }, string>({
+      query: (tokenId) => ({
+        url: `/scratch/share-tokens/${tokenId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchShareToken'],
+    }),
+
+    // Public Scratch Page Access
+    getPublicScratchPage: builder.query<{ page: ScratchPage; blocks: ScratchBlock[]; role: 'viewer' | 'editor'; expiresAt?: string }, string>({
+      query: (token) => `/scratch/public/pages/${token}`,
+    }),
+    updatePublicScratchBlock: builder.mutation<{ block: ScratchBlock }, { token: string; blockId: string; body: { content?: string; type?: string; properties?: any } }>({
+      query: ({ token, blockId, body }) => ({
+        url: `/scratch/public/tokens/${token}/blocks/${blockId}`,
+        method: 'PATCH',
+        body,
+      }),
+    }),
   }),
 });
 
@@ -628,5 +773,26 @@ export const {
   useAnswerSessionQuestionMutation,
   useConfirmSessionMutation,
   useCancelSessionMutation,
+  useGetScratchPagesQuery,
+  useGetScratchPageQuery,
+  useCreateScratchPageMutation,
+  useUpdateScratchPageMutation,
+  useDeleteScratchPageMutation,
+  useDuplicateScratchPageMutation,
+  useGetScratchBlocksQuery,
+  useCreateScratchBlockMutation,
+  useUpdateScratchBlockMutation,
+  useDeleteScratchBlockMutation,
+  useReorderScratchBlocksMutation,
+  useGetScratchCommentsQuery,
+  useCreateScratchCommentMutation,
+  useReplyScratchCommentMutation,
+  useResolveScratchCommentMutation,
+  useDeleteScratchCommentMutation,
+  useGetScratchShareTokensQuery,
+  useCreateScratchShareTokenMutation,
+  useDeleteScratchShareTokenMutation,
+  useGetPublicScratchPageQuery,
+  useUpdatePublicScratchBlockMutation,
 } = backendApi;
 

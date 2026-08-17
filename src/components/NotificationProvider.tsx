@@ -118,7 +118,7 @@ export const NotificationProvider: React.FC<PropsWithChildren<{}>> = ({ children
 
     const socket = io(API_BASE_URL, {
       auth: { token },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
     });
 
     socketRef.current = socket;

@@ -1,6 +1,6 @@
 // App.tsx
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Login } from "./Pages/Login";
 import Home from "./Pages/Home";
@@ -9,6 +9,12 @@ import ForgotPassword from "./Pages/ForgotPassword";
 import ItemDetailPage from "./Pages/ItemDetailPage";
 import { NotificationProvider } from "./components/NotificationProvider";
 import { ConfirmProvider } from "./context/ConfirmContext";
+import { PublicScratchView } from "./components/scratch/PublicScratchView";
+
+const PublicScratchWrapper = () => {
+  const { token } = useParams<{ token: string }>();
+  return <PublicScratchView token={token || ""} />;
+};
 
 const App: React.FC = () => {
   return (
@@ -20,6 +26,11 @@ const App: React.FC = () => {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              {/* Unprotected Token-Embedded Public Shared Scratch Route */}
+              <Route path="/scratch/public/:token" element={<PublicScratchWrapper />} />
+              {/* Protected Scratch Board routes */}
+              <Route path="/scratch" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+              <Route path="/scratch/page/:pageId" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               {/* Root – goes to workspace dashboard */}
               <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
               {/* User profile view – shows profile of specific user */}
