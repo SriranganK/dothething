@@ -91,7 +91,7 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
     const shared: ScratchPage[] = [];
     const childMap: Record<string, ScratchPage[]> = {};
 
-    const currentUserId = user?.id || user?._id;
+    const currentUserId = user?.id || (user as any)?._id;
 
     pages.forEach((p) => {
       if (p.isFavorite) favs.push(p);
