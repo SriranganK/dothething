@@ -78,7 +78,10 @@ export const SlateFormat = {
       const domSelection = window.getSelection();
       if (domSelection && domSelection.rangeCount > 0) {
         try {
-          selection = ReactEditor.toSlateRange(editor as ReactEditor, domSelection);
+          selection = ReactEditor.toSlateRange(editor as ReactEditor, domSelection, {
+            exactMatch: false,
+            suppressThrow: true,
+          });
         } catch (e) {
           // DOM selection couldn't be converted
         }
