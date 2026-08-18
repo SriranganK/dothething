@@ -3,7 +3,7 @@ import type { ScratchBlockProperties } from '@/types/scratch';
 
 interface CodeBlockProps {
   content: string;
-  properties: ScratchBlockProperties;
+  properties?: ScratchBlockProperties;
   onChangeContent: (value: string) => void;
   onChangeProperties: (props: ScratchBlockProperties) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -12,7 +12,7 @@ interface CodeBlockProps {
 
 export const CodeBlock: React.FC<CodeBlockProps> = ({
   content,
-  properties,
+  properties = {},
   onChangeContent,
   onChangeProperties,
   onKeyDown,
@@ -25,7 +25,7 @@ export const CodeBlock: React.FC<CodeBlockProps> = ({
     setLocalValue(content);
   }, [content]);
 
-  const language = properties.language || 'typescript';
+  const language = properties?.language || 'typescript';
 
   const adjustHeight = () => {
     if (textareaRef.current) {

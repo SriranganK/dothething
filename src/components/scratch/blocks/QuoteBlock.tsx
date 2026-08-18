@@ -8,6 +8,7 @@ interface QuoteBlockProps {
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  onEditorReady?: (editor: any) => void;
 }
 
 export const QuoteBlock: React.FC<QuoteBlockProps> = ({
@@ -17,6 +18,7 @@ export const QuoteBlock: React.FC<QuoteBlockProps> = ({
   autoFocus = false,
   onFocus,
   onBlur,
+  onEditorReady,
 }) => {
   return (
     <div className="border-l-3 border-primary/70 pl-3 my-1">
@@ -28,6 +30,7 @@ export const QuoteBlock: React.FC<QuoteBlockProps> = ({
         autoFocus={autoFocus}
         onFocus={onFocus}
         onBlur={onBlur}
+        onEditorReady={onEditorReady}
         className="w-full bg-transparent text-foreground italic outline-none border-none py-1 text-sm leading-relaxed min-h-[28px] cursor-text"
       />
     </div>

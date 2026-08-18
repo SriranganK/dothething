@@ -603,7 +603,7 @@ export const backendApi = createApi({
       }),
       invalidatesTags: ['ScratchBlock'],
     }),
-    updateScratchBlock: builder.mutation<{ block: ScratchBlock }, { blockId: string; body: { type?: string; content?: string; properties?: any; order?: number } }>({
+    updateScratchBlock: builder.mutation<{ block: ScratchBlock }, { blockId: string; body: { type?: string; content?: string; properties?: any; order?: number; pageId?: string } }>({
       query: ({ blockId, body }) => ({
         url: `/scratch/blocks/${blockId}`,
         method: 'PATCH',

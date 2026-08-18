@@ -4,7 +4,7 @@ import type { ScratchBlockProperties } from '@/types/scratch';
 
 interface TableBlockProps {
   content: string;
-  properties: ScratchBlockProperties;
+  properties?: ScratchBlockProperties;
   onChangeProperties: (props: ScratchBlockProperties) => void;
   onKeyDown?: (e: React.KeyboardEvent) => void;
   autoFocus?: boolean;
@@ -25,7 +25,7 @@ const DEFAULT_TABLE_DATA: TableData = {
 
 export const TableBlock: React.FC<TableBlockProps> = ({
   content,
-  properties,
+  properties = {},
   onChangeProperties,
   onKeyDown,
 }) => {

@@ -163,6 +163,7 @@ export const PublicScratchView: React.FC<PublicScratchViewProps> = ({ token }) =
               onCreateBlockBelow={() => {}}
               onDuplicateBlock={() => {}}
               isFocused={focusedBlockId === block._id}
+              hasAnyFocusedBlock={Boolean(focusedBlockId)}
               onFocus={() => setFocusedBlockId(block._id)}
             />
           ))}

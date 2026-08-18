@@ -9,6 +9,7 @@ interface ParagraphBlockProps {
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  onEditorReady?: (editor: any) => void;
 }
 
 export const ParagraphBlock: React.FC<ParagraphBlockProps> = ({
@@ -19,6 +20,7 @@ export const ParagraphBlock: React.FC<ParagraphBlockProps> = ({
   autoFocus = false,
   onFocus,
   onBlur,
+  onEditorReady,
 }) => {
   return (
     <SlateBlockInput
@@ -29,6 +31,7 @@ export const ParagraphBlock: React.FC<ParagraphBlockProps> = ({
       autoFocus={autoFocus}
       onFocus={onFocus}
       onBlur={onBlur}
+      onEditorReady={onEditorReady}
       className="w-full bg-transparent text-foreground outline-none border-none py-1 text-sm leading-relaxed font-normal min-h-[28px] cursor-text"
     />
   );

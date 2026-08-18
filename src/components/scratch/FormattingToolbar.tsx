@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Bold,
   Italic,
@@ -33,6 +33,7 @@ interface FormattingToolbarProps {
   onChangeType: (type: BlockType) => void;
   onFormatText: (command: string, value?: string) => void;
   onAddComment?: () => void;
+  onOpenStateChange?: (isOpen: boolean) => void;
   position?: { top: number; left: number };
 }
 
@@ -49,27 +50,87 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
   onChangeType,
   onFormatText,
   onAddComment,
+  onOpenStateChange,
   position,
 }) => {
   const [linkUrl, setLinkUrl] = useState('');
   const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const savedRangeRef = useRef<Range | null>(null);
+
+  useEffect(() => {
+    onOpenStateChange?.(linkPopoverOpen);
+    if (linkPopoverOpen) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+  }, [linkPopoverOpen, onOpenStateChange]);
+
+  const handleSaveSelection = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      savedRangeRef.current = sel.getRangeAt(0).cloneRange();
+    }
+  };
 
   const handleApplyLink = () => {
     if (linkUrl.trim()) {
       let finalUrl = linkUrl.trim();
-      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://') && !finalUrl.startsWith('mailto:')) {
         finalUrl = `https://${finalUrl}`;
       }
+
+      // Restore saved DOM selection before applying link
+      const sel = window.getSelection();
+      if (sel && savedRangeRef.current) {
+        try {
+          sel.removeAllRanges();
+          sel.addRange(savedRangeRef.current);
+        } catch (err) {
+          // Range might be stale if selection DOM changed
+        }
+      }
+
       onFormatText('createLink', finalUrl);
       setLinkUrl('');
       setLinkPopoverOpen(false);
     }
   };
 
+  const toolbarRef = useRef<HTMLDivElement>(null);
+  const [adjustedPos, setAdjustedPos] = useState<{ top: number; left: number } | undefined>(position);
+
+  useEffect(() => {
+    if (!position || !toolbarRef.current) return;
+    const rect = toolbarRef.current.getBoundingClientRect();
+    const margin = 12;
+    let newTop = position.top;
+    let newLeft = position.left;
+
+    // Viewport width check
+    if (newLeft + rect.width > window.innerWidth - margin) {
+      newLeft = Math.max(margin, window.innerWidth - rect.width - margin);
+    }
+    if (newLeft < margin) {
+      newLeft = margin;
+    }
+
+    // Viewport height check (flip to below if top overflow)
+    if (newTop < margin) {
+      newTop = position.top + 45; // move below selection
+    }
+
+    setAdjustedPos({ top: newTop, left: newLeft });
+  }, [position]);
+
   return (
     <div
-      style={position ? { top: position.top, left: position.left } : undefined}
-      className="z-50 flex items-center gap-0.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1 animate-in fade-in-50 zoom-in-95 duration-100 select-none"
+      ref={toolbarRef}
+      style={adjustedPos ? { top: adjustedPos.top, left: adjustedPos.left } : undefined}
+      className="z-[100] flex items-center gap-0.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1 animate-in fade-in-50 zoom-in-95 duration-100 select-none backdrop-blur-md"
     >
       {/* Block Type Dropdown */}
       <DropdownMenu>
@@ -159,18 +220,24 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
       <Popover open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen}>
         <PopoverTrigger asChild>
           <button
-            onMouseDown={(e) => e.preventDefault()}
+            onMouseDown={handleSaveSelection}
             className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
             title="Add Link"
           >
             <LinkIcon className="h-3.5 w-3.5" />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-64 p-2 bg-popover border-border">
+        <PopoverContent
+          align="start"
+          className="w-64 p-2 bg-popover border-border z-50 shadow-2xl"
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <p className="text-xs font-semibold text-muted-foreground mb-1.5">Insert Link URL</p>
           <div className="flex items-center gap-1.5">
             <input
               type="url"
+              autoFocus
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleApplyLink()}

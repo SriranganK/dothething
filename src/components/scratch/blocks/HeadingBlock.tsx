@@ -10,6 +10,7 @@ interface HeadingBlockProps {
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  onEditorReady?: (editor: any) => void;
 }
 
 export const HeadingBlock: React.FC<HeadingBlockProps> = ({
@@ -21,6 +22,7 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
   autoFocus = false,
   onFocus,
   onBlur,
+  onEditorReady,
 }) => {
   const levelStyles = {
     1: 'text-2xl font-bold text-foreground mt-4 mb-1 tracking-tight',
@@ -43,6 +45,7 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
       autoFocus={autoFocus}
       onFocus={onFocus}
       onBlur={onBlur}
+      onEditorReady={onEditorReady}
       className={`w-full bg-transparent outline-none border-none py-0.5 leading-snug min-h-[32px] cursor-text ${levelStyles[level]}`}
     />
   );

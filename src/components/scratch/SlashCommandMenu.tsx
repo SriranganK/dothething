@@ -12,6 +12,8 @@ import {
   Code,
   Kanban,
   Table as TableIcon,
+  ChevronRight,
+  FileUp,
   Link2,
 } from 'lucide-react';
 import type { BlockType } from '@/types/scratch';
@@ -30,6 +32,8 @@ const COMMAND_ITEMS: CommandItem[] = [
   { id: 'heading2', label: 'Heading 2', description: 'Medium section heading.', category: 'Basic', icon: Heading2 },
   { id: 'heading3', label: 'Heading 3', description: 'Small section heading.', category: 'Basic', icon: Heading3 },
   { id: 'todo', label: 'Todo List', description: 'Track tasks with a checklist.', category: 'Basic', icon: CheckSquare },
+  { id: 'toggle', label: 'Toggle List', description: 'Collapsible section to hide and show sub-content.', category: 'Basic', icon: ChevronRight },
+  { id: 'file', label: 'File / PDF / DOCX', description: 'Upload a PDF, DOCX or document file with preview.', category: 'Media', icon: FileUp },
   { id: 'bulletList', label: 'Bulleted List', description: 'Create a simple bulleted list.', category: 'Basic', icon: List },
   { id: 'numberedList', label: 'Numbered List', description: 'Create a list with numbering.', category: 'Basic', icon: ListOrdered },
   { id: 'quote', label: 'Quote', description: 'Capture a quote or callout block.', category: 'Basic', icon: Quote },
@@ -108,7 +112,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
       <div
         ref={containerRef}
         style={position ? { top: position.top, left: position.left } : undefined}
-        className="z-50 w-72 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-3 text-xs text-muted-foreground text-center"
+        className="z-[120] w-72 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-3 text-xs text-muted-foreground text-center"
       >
         No commands found matching "{query}"
       </div>
@@ -119,7 +123,7 @@ export const SlashCommandMenu: React.FC<SlashCommandMenuProps> = ({
     <div
       ref={containerRef}
       style={position ? { top: position.top, left: position.left } : undefined}
-      className="z-50 w-72 max-h-80 overflow-y-auto bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in-50 zoom-in-95 duration-100"
+      className="z-[120] w-72 max-h-80 overflow-y-auto bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1.5 space-y-1 animate-in fade-in-50 zoom-in-95 duration-100"
     >
       <div className="px-2 py-1 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
         Basic Blocks

@@ -1,16 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   useGetScratchPageQuery,
+  useGetScratchPagesQuery,
   useUpdateScratchPageMutation,
   useCreateScratchBlockMutation,
   useUpdateScratchBlockMutation,
   useDeleteScratchBlockMutation,
+  useReorderScratchBlocksMutation,
   useGetScratchCommentsQuery,
 } from '@/store/services/api';
-import type { ScratchBlock, BlockType, ScratchBlockProperties, ScratchComment } from '@/types/scratch';
+import type { ScratchBlock, BlockType, ScratchBlockProperties, ScratchComment, ScratchPage } from '@/types/scratch';
 import { BlockRenderer } from './BlockRenderer';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { ScratchCommentsDrawer } from './ScratchCommentsDrawer';
 import { ScratchShareDialog } from './ScratchShareDialog';
 import { useNotifications } from '@/components/NotificationProvider';
@@ -25,6 +33,7 @@ import {
   Globe,
   Check,
   MessageSquare,
+  FolderOutput,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,8 +58,13 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   const [createBlock] = useCreateScratchBlockMutation();
   const [updateBlock] = useUpdateScratchBlockMutation();
   const [deleteBlock] = useDeleteScratchBlockMutation();
+  const [reorderBlocks] = useReorderScratchBlocksMutation();
 
   const page = data?.page;
+  const workspaceId = page?.workspace || '';
+  const { data: workspacePagesData } = useGetScratchPagesQuery(workspaceId, { skip: !workspaceId });
+  const workspacePages = workspacePagesData?.pages || [];
+
   const serverBlocks = data?.blocks || [];
 
   const [title, setTitle] = useState('');
@@ -63,6 +77,9 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  const [moveBlockId, setMoveBlockId] = useState<string | null>(null);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
 
   const [showCommentsDrawer, setShowCommentsDrawer] = useState(false);
   const [activeCommentBlockId, setActiveCommentBlockId] = useState<string | null>(null);
@@ -118,10 +135,27 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     if (socket && pageId) {
       socket.emit('scratch:join', pageId);
 
-      const handleRemoteBlockUpdate = (data: any) => {
-        if (data?.senderId && user && data.senderId === user.id) {
-          return;
+      const handleRemoteBlockTyping = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
+        if (data?.block?._id) {
+          setBlocks((prev) =>
+            prev.map((b) => (b._id === data.block._id ? { ...b, content: data.block.content } : b))
+          );
         }
+      };
+
+      const handleRemoteTitleTyping = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
+        if (data?.title !== undefined) {
+          setTitle(data.title);
+        }
+      };
+
+      const handleRemoteBlockUpdate = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
         if (data?.block) {
           setBlocks((prev) =>
             prev.map((b) => (b._id === data.block._id ? data.block : b))
@@ -130,7 +164,8 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
       };
 
       const handleRemoteBlockCreated = (data: any) => {
-        if (data?.senderId && user && data.senderId === user.id) return;
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
         if (data?.block) {
           setBlocks((prev) => {
             if (prev.some((b) => b._id === data.block._id)) return prev;
@@ -140,14 +175,31 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
       };
 
       const handleRemoteBlockDeleted = (data: any) => {
-        if (data?.senderId && user && data.senderId === user.id) return;
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
         if (data?.blockId) {
           setBlocks((prev) => prev.filter((b) => b._id !== data.blockId));
         }
       };
 
+      const handleRemoteBlocksReordered = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
+        if (data?.blocks && Array.isArray(data.blocks)) {
+          setBlocks((prev) => {
+            const orderMap = new Map(data.blocks.map((b: any) => [b.id, b.order]));
+            return [...prev].sort((a, b) => {
+              const orderA = orderMap.has(a._id) ? (orderMap.get(a._id) as number) : a.order;
+              const orderB = orderMap.has(b._id) ? (orderMap.get(b._id) as number) : b.order;
+              return orderA - orderB;
+            });
+          });
+        }
+      };
+
       const handleRemotePageUpdated = (data: any) => {
-        if (data?.senderId && user && data.senderId === user.id) return;
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
         if (data?.page) {
           if (data.page.title !== undefined) setTitle(data.page.title);
           if (data.page.icon !== undefined) setIcon(data.page.icon);
@@ -155,15 +207,21 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         }
       };
 
+      socket.on('scratch:block-typing', handleRemoteBlockTyping);
+      socket.on('scratch:title-typing', handleRemoteTitleTyping);
       socket.on('scratch:block-updated', handleRemoteBlockUpdate);
       socket.on('scratch:block-created', handleRemoteBlockCreated);
       socket.on('scratch:block-deleted', handleRemoteBlockDeleted);
+      socket.on('scratch:blocks-reordered', handleRemoteBlocksReordered);
       socket.on('scratch:page-updated', handleRemotePageUpdated);
 
       return () => {
+        socket.off('scratch:block-typing', handleRemoteBlockTyping);
+        socket.off('scratch:title-typing', handleRemoteTitleTyping);
         socket.off('scratch:block-updated', handleRemoteBlockUpdate);
         socket.off('scratch:block-created', handleRemoteBlockCreated);
         socket.off('scratch:block-deleted', handleRemoteBlockDeleted);
+        socket.off('scratch:blocks-reordered', handleRemoteBlocksReordered);
         socket.off('scratch:page-updated', handleRemotePageUpdated);
         socket.emit('scratch:leave', pageId);
       };
@@ -174,6 +232,14 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   const titleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleTitleChange = (val: string) => {
     setTitle(val);
+    const currentUserId = user?.id || (user as any)?._id;
+    if (socket && pageId && currentUserId) {
+      socket.emit('scratch:title-typing', {
+        pageId,
+        title: val,
+        senderId: currentUserId,
+      });
+    }
     if (titleTimeoutRef.current) clearTimeout(titleTimeoutRef.current);
     titleTimeoutRef.current = setTimeout(() => {
       if (pageId) {
@@ -219,7 +285,7 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
-  // Debounced block updates
+  // Debounced block updates with instant socket typing emit
   const blockDebounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   const handleUpdateBlockContent = useCallback(
@@ -227,6 +293,15 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
       setBlocks((prev) =>
         prev.map((b) => (b._id === blockId ? { ...b, content } : b))
       );
+
+      const currentUserId = user?.id || (user as any)?._id;
+      if (socket && pageId && currentUserId) {
+        socket.emit('scratch:block-typing', {
+          pageId,
+          block: { _id: blockId, content },
+          senderId: currentUserId,
+        });
+      }
 
       if (blockDebounceTimers.current[blockId]) {
         clearTimeout(blockDebounceTimers.current[blockId]);
@@ -236,7 +311,7 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         updateBlock({ blockId, body: { content } });
       }, 300);
     },
-    [updateBlock]
+    [updateBlock, socket, pageId, user]
   );
 
   const handleUpdateBlockProperties = useCallback(
@@ -323,6 +398,49 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     },
     [createBlock, pageId]
   );
+
+  const handleMoveBlock = useCallback(
+    async (draggedId: string, targetId: string) => {
+      setBlocks((prev) => {
+        const draggedIdx = prev.findIndex((b) => b._id === draggedId);
+        const targetIdx = prev.findIndex((b) => b._id === targetId);
+        if (draggedIdx === -1 || targetIdx === -1) return prev;
+
+        const updated = [...prev];
+        const [removed] = updated.splice(draggedIdx, 1);
+        updated.splice(targetIdx, 0, removed);
+
+        // Sync reorder with backend API
+        const payload = updated.map((b, idx) => ({ id: b._id, order: idx }));
+        reorderBlocks({ pageId, blocks: payload }).catch((err) => {
+          console.error('Failed to reorder blocks:', err);
+        });
+
+        return updated;
+      });
+    },
+    [pageId, reorderBlocks]
+  );
+
+  const handleOpenMoveBlockDialog = useCallback((blockId: string) => {
+    setMoveBlockId(blockId);
+    setMoveDialogOpen(true);
+  }, []);
+
+  const handleConfirmMoveBlockToPage = async (targetPageId: string) => {
+    if (!moveBlockId) return;
+    try {
+      // Re-assign pageId of target block
+      await updateBlock({ blockId: moveBlockId, body: { pageId: targetPageId } }).unwrap();
+      setBlocks((prev) => prev.filter((b) => b._id !== moveBlockId));
+      setMoveDialogOpen(false);
+      setMoveBlockId(null);
+      toast.success('Block moved to target page');
+    } catch (err) {
+      console.error('Failed to move block to page:', err);
+      toast.error('Failed to move block');
+    }
+  };
 
   if (isLoading) {
     return (
@@ -501,11 +619,14 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
                   onDeleteBlock={handleDeleteBlock}
                   onCreateBlockBelow={handleCreateBlockBelow}
                   onDuplicateBlock={handleDuplicateBlock}
+                  onMoveBlock={handleMoveBlock}
+                  onMoveToPage={handleOpenMoveBlockDialog}
                   onAddComment={(blockId) => {
                     setActiveCommentBlockId(blockId);
                     setShowCommentsDrawer(true);
                   }}
                   isFocused={focusedBlockId === block._id}
+                  hasAnyFocusedBlock={Boolean(focusedBlockId)}
                   onFocus={() => setFocusedBlockId(block._id)}
                   commentCount={commentsByBlockId[block._id]}
                   isActiveCommentTarget={activeCommentBlockId === block._id}
@@ -546,6 +667,40 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         open={shareDialogOpen}
         onOpenChange={setShareDialogOpen}
       />
+
+      {/* Move Block to Page Dialog */}
+      <Dialog open={moveDialogOpen} onOpenChange={setMoveDialogOpen}>
+        <DialogContent className="bg-card border-border text-card-foreground max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold">
+              <FolderOutput className="h-4 w-4 text-primary" /> Move Block to Page
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground mb-2">
+            Select a Scratch page in this workspace to move this block:
+          </p>
+          <div className="max-h-60 overflow-y-auto space-y-1 py-1">
+            {workspacePages
+              .filter((p) => p._id !== pageId)
+              .map((p) => (
+                <button
+                  key={p._id}
+                  onClick={() => handleConfirmMoveBlockToPage(p._id)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium hover:bg-muted transition-colors cursor-pointer"
+                >
+                  <span className="text-base">{p.icon || '📄'}</span>
+                  <span className="truncate flex-1 font-semibold">{p.title || 'Untitled'}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase">{p.visibility || 'private'}</span>
+                </button>
+              ))}
+            {workspacePages.filter((p) => p._id !== pageId).length === 0 && (
+              <p className="text-xs text-muted-foreground italic px-2 py-3 text-center">
+                No other pages in this workspace. Create another page first.
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

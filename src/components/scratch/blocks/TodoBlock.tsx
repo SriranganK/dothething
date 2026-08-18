@@ -6,30 +6,32 @@ import { SlateBlockInput } from './SlateBlockInput';
 
 interface TodoBlockProps {
   content: string;
-  properties: ScratchBlockProperties;
+  properties?: ScratchBlockProperties;
   onChangeContent: (content: string) => void;
   onChangeProperties: (props: ScratchBlockProperties) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   autoFocus?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  onEditorReady?: (editor: any) => void;
 }
 
 export const TodoBlock: React.FC<TodoBlockProps> = ({
   content,
-  properties,
+  properties = {},
   onChangeContent,
   onChangeProperties,
   onKeyDown,
   autoFocus = false,
   onFocus,
   onBlur,
+  onEditorReady,
 }) => {
-  const isChecked = !!properties.checked;
-  const isLinkedToTask = properties.linkedEntityType === 'task' && properties.linkedEntityId;
+  const isChecked = !!properties?.checked;
+  const isLinkedToTask = properties?.linkedEntityType === 'task' && Boolean(properties?.linkedEntityId);
 
   const toggleChecked = () => {
-    onChangeProperties({ ...properties, checked: !isChecked });
+    onChangeProperties({ ...(properties || {}), checked: !isChecked });
   };
 
   return (
@@ -50,6 +52,7 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
           autoFocus={autoFocus}
           onFocus={onFocus}
           onBlur={onBlur}
+          onEditorReady={onEditorReady}
           className={`w-full bg-transparent text-foreground outline-none border-none py-0.5 text-sm leading-relaxed min-h-[26px] cursor-text ${
             isChecked ? 'line-through text-muted-foreground/70' : ''
           }`}

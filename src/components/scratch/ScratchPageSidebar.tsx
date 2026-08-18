@@ -220,6 +220,19 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
     }
   };
 
+  const handleMovePageParent = async (pageId: string, newParentPageId: string | null) => {
+    try {
+      await updatePage({ id: pageId, body: { parentPageId: newParentPageId } }).unwrap();
+      if (newParentPageId) {
+        setExpandedPageIds((prev) => ({ ...prev, [newParentPageId]: true }));
+      }
+      toast.success('Page moved');
+    } catch (err) {
+      console.error('Failed to move page:', err);
+      toast.error('Failed to move page');
+    }
+  };
+
   const renderPageItem = (page: ScratchPage, level = 0) => {
     const hasChildren = childPagesMap[page._id] && childPagesMap[page._id].length > 0;
     const isExpanded = expandedPageIds[page._id];
@@ -287,6 +300,33 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
                   <Star className={`h-3.5 w-3.5 mr-2 ${page.isFavorite ? 'fill-amber-400 text-amber-400' : ''}`} />
                   {page.isFavorite ? 'Unfavorite' : 'Favorite'}
                 </DropdownMenuItem>
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger className="cursor-pointer">
+                    <Folder className="h-3.5 w-3.5 mr-2 text-primary" />
+                    Move to...
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-48 bg-popover border-border max-h-56 overflow-y-auto">
+                    <DropdownMenuItem
+                      onClick={() => handleMovePageParent(page._id, null)}
+                      className="cursor-pointer font-medium"
+                    >
+                      Top Level (Root)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {pages
+                      .filter((p) => p._id !== page._id && p.parentPageId !== page._id)
+                      .map((p) => (
+                        <DropdownMenuItem
+                          key={p._id}
+                          onClick={() => handleMovePageParent(page._id, p._id)}
+                          className="cursor-pointer"
+                        >
+                          <span className="mr-1.5">{p.icon || '📄'}</span>
+                          <span className="truncate">{p.title || 'Untitled'}</span>
+                        </DropdownMenuItem>
+                      ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="cursor-pointer">
                     {page.visibility === 'workspace' ? (
