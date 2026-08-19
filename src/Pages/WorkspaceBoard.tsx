@@ -1006,32 +1006,34 @@ function WorkspaceBoardContent({
   }, [workspace, workspaceMembers, user]);
 
 
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.description &&
-        item.description
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()));
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesSearch =
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.description &&
+          item.description
+            .toLowerCase()
+            .includes(searchQuery.toLowerCase()));
 
-    const matchesType =
-      filterType === "All" || item.type === filterType;
-    const matchesPriority =
-      filterPriority === "All" || item.priority === filterPriority;
+      const matchesType =
+        filterType === "All" || item.type === filterType;
+      const matchesPriority =
+        filterPriority === "All" || item.priority === filterPriority;
 
-    let matchesAssignee = true;
-    if (filterAssignee !== "All") {
-      if (filterAssignee === "Unassigned") {
-        matchesAssignee = !item.assignee;
-      } else {
-        matchesAssignee = item.assignee === filterAssignee;
+      let matchesAssignee = true;
+      if (filterAssignee !== "All") {
+        if (filterAssignee === "Unassigned") {
+          matchesAssignee = !item.assignee;
+        } else {
+          matchesAssignee = item.assignee === filterAssignee;
+        }
       }
-    }
 
-    return (
-      matchesSearch && matchesType && matchesPriority && matchesAssignee
-    );
-  });
+      return (
+        matchesSearch && matchesType && matchesPriority && matchesAssignee
+      );
+    });
+  }, [items, searchQuery, filterType, filterPriority, filterAssignee]);
 
   // ========== Render ==========
 

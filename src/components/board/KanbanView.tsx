@@ -1,5 +1,5 @@
 // src/components/board/KanbanView.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -213,7 +213,7 @@ export function KanbanView({
 
   // Keep localItems in sync when external items prop changes (e.g. after RTK Query refetch)
   // We compare a stable key so we only re-sync when actual data changes, not on every render.
-  const stableItemsKey = JSON.stringify(items.map(i => ({
+  const stableItemsKey = useMemo(() => JSON.stringify(items.map(i => ({
     id: i._id,
     columnId: i.columnId,
     order: i.order,
@@ -226,7 +226,8 @@ export function KanbanView({
     checklist: i.checklist,
     comments: i.comments,
     attachments: i.attachments
-  })));
+  }))), [items]);
+
   useEffect(() => {
     setLocalItems(items);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -282,7 +283,7 @@ export function KanbanView({
     if (item) setActiveItem(item);
   };
 
-  // Optimistically reorder localItems during drag so cards animate in real-time
+  // Optimistically reorder localItems during drag for cross-column moves so cards animate in real-time
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -311,15 +312,10 @@ export function KanbanView({
         return updated;
       }
 
-      // Same-column reorder
-      const colItems = prev.filter((it) => it.columnId === targetColId);
-      const oldIndex = colItems.findIndex((it) => it._id === activeId);
-      const newIndex = colItems.findIndex((it) => it._id === overId);
-      if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return prev;
-
-      const reordered = arrayMove(colItems, oldIndex, newIndex);
-      const others = prev.filter((it) => it.columnId !== targetColId);
-      return [...others, ...reordered];
+      // Do NOT reorder within the same column during dragOver.
+      // @dnd-kit/sortable automatically handles same-column visual sorting.
+      // Modifying state during dragOver in the same column causes recursive state update loops ("Maximum update depth exceeded").
+      return prev;
     });
   };
 
@@ -355,11 +351,13 @@ export function KanbanView({
     } else {
       // Same-column reorder
       const targetColItems = localItems.filter((it) => it.columnId === targetColId);
-      const newIndex = targetColItems.findIndex((it) => it._id === activeId);
-      const originalColItems = items.filter((it) => it.columnId === targetColId);
-      const oldIndex = originalColItems.findIndex((it) => it._id === activeId);
+      const oldIndex = targetColItems.findIndex((it) => it._id === activeId);
+      const newIndex = targetColItems.findIndex((it) => it._id === overId);
 
       if (newIndex !== -1 && oldIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(targetColItems, oldIndex, newIndex);
+        const others = localItems.filter((it) => it.columnId !== targetColId);
+        setLocalItems([...others, ...reordered]);
         await onReorderCard(activeId, targetColId, newIndex);
       }
     }
