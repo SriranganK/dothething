@@ -450,7 +450,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Turn into...
               </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-40 bg-popover border-border">
+              <DropdownMenuSubContent className="w-44 bg-popover border-border">
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'paragraph')}>Text</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'heading1')}>Heading 1</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'heading2')}>Heading 2</DropdownMenuItem>
@@ -463,6 +463,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'quote')}>Quote</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'code')}>Code Block</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'table')}>Table</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onChangeType(block._id, 'divider')}>Divider</DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
           </DropdownMenuContent>

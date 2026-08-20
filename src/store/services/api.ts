@@ -575,7 +575,6 @@ export const backendApi = createApi({
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: ['ScratchPage'],
     }),
     deleteScratchPage: builder.mutation<{ message: string; deletedPageIds: string[] }, string>({
       query: (id) => ({
@@ -609,7 +608,6 @@ export const backendApi = createApi({
         method: 'PATCH',
         body,
       }),
-      invalidatesTags: ['ScratchBlock'],
     }),
     deleteScratchBlock: builder.mutation<{ message: string; blockId: string }, string>({
       query: (blockId) => ({

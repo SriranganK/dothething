@@ -10,6 +10,7 @@ import {
   Heading2,
   Heading3,
   List,
+  ListOrdered,
   Type,
   CheckSquare,
   Quote,
@@ -17,6 +18,9 @@ import {
   Palette,
   MessageSquarePlus,
   Check,
+  ChevronRight,
+  FileUp,
+  Minus,
 } from 'lucide-react';
 import type { BlockType } from '@/types/scratch';
 import {
@@ -24,6 +28,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -43,6 +48,18 @@ const HIGHLIGHT_COLORS = [
   { name: 'Blue', color: '#bfdbfe' },   // blue-200
   { name: 'Red', color: '#fecaca' },    // red-200
   { name: 'Purple', color: '#e9d5ff' }, // purple-200
+  { name: 'Orange', color: '#ffedd5' }, // orange-200
+  { name: 'Gray', color: '#e5e7eb' },   // gray-200
+];
+
+const TEXT_COLORS = [
+  { name: 'Default', color: '' },
+  { name: 'Gray', color: '#6b7280' },
+  { name: 'Red', color: '#ef4444' },
+  { name: 'Orange', color: '#f97316' },
+  { name: 'Green', color: '#22c55e' },
+  { name: 'Blue', color: '#3b82f6' },
+  { name: 'Purple', color: '#a855f7' },
 ];
 
 export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
@@ -130,7 +147,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
     <div
       ref={toolbarRef}
       style={adjustedPos ? { top: adjustedPos.top, left: adjustedPos.left } : undefined}
-      className="z-[100] flex items-center gap-0.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl p-1 animate-in fade-in-50 zoom-in-95 duration-100 select-none backdrop-blur-md"
+      className="z-[100] flex items-center gap-1 bg-card/85 dark:bg-zinc-900/90 text-popover-foreground border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl p-1.5 animate-in fade-in-50 zoom-in-95 duration-100 select-none backdrop-blur-2xl"
     >
       {/* Block Type Dropdown */}
       <DropdownMenu>
@@ -143,7 +160,7 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
             <span className="capitalize">{currentType.replace(/([A-Z])/g, ' $1')}</span>
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-40 bg-popover border-border">
+        <DropdownMenuContent align="start" className="w-48 bg-popover border-border max-h-72 overflow-y-auto">
           <DropdownMenuItem onClick={() => onChangeType('paragraph')}>
             <Type className="h-3.5 w-3.5 mr-2" /> Text
           </DropdownMenuItem>
@@ -156,11 +173,21 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
           <DropdownMenuItem onClick={() => onChangeType('heading3')}>
             <Heading3 className="h-3.5 w-3.5 mr-2" /> Heading 3
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => onChangeType('toggle')}>
+            <ChevronRight className="h-3.5 w-3.5 mr-2 text-primary" /> Toggle List
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onChangeType('file')}>
+            <FileUp className="h-3.5 w-3.5 mr-2 text-blue-500" /> File / PDF
+          </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeType('todo')}>
             <CheckSquare className="h-3.5 w-3.5 mr-2" /> Todo List
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeType('bulletList')}>
             <List className="h-3.5 w-3.5 mr-2" /> Bullet List
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onChangeType('numberedList')}>
+            <ListOrdered className="h-3.5 w-3.5 mr-2" /> Numbered List
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeType('quote')}>
             <Quote className="h-3.5 w-3.5 mr-2" /> Quote
@@ -171,10 +198,60 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
           <DropdownMenuItem onClick={() => onChangeType('table')}>
             <TableIcon className="h-3.5 w-3.5 mr-2" /> Table
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onChangeType('divider')}>
+            <Minus className="h-3.5 w-3.5 mr-2" /> Divider
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <div className="w-[1px] h-4 bg-border mx-1" />
+      <div className="w-[1px] h-4 bg-border mx-0.5" />
+
+      {/* Quick Action Toolbar Icons for Notion Features */}
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onChangeType('file')}
+        className={`p-1.5 hover:bg-muted rounded-lg cursor-pointer transition-colors ${
+          currentType === 'file' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Add File / PDF Attachment"
+      >
+        <FileUp className="h-3.5 w-3.5 text-blue-500" />
+      </button>
+
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onChangeType('toggle')}
+        className={`p-1.5 hover:bg-muted rounded-lg cursor-pointer transition-colors ${
+          currentType === 'toggle' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Add Toggle List"
+      >
+        <ChevronRight className="h-3.5 w-3.5 text-primary" />
+      </button>
+
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onChangeType('todo')}
+        className={`p-1.5 hover:bg-muted rounded-lg cursor-pointer transition-colors ${
+          currentType === 'todo' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Todo List Checklist"
+      >
+        <CheckSquare className="h-3.5 w-3.5" />
+      </button>
+
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => onChangeType('table')}
+        className={`p-1.5 hover:bg-muted rounded-lg cursor-pointer transition-colors ${
+          currentType === 'table' ? 'bg-primary/10 text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Insert Table"
+      >
+        <TableIcon className="h-3.5 w-3.5" />
+      </button>
+
+      <div className="w-[1px] h-4 bg-border mx-0.5" />
 
       {/* Bold */}
       <button
@@ -251,19 +328,19 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
         </PopoverContent>
       </Popover>
 
-      {/* Color Highlight Dropdown */}
+      {/* Color Highlight & Text Color Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             onMouseDown={(e) => e.preventDefault()}
             className="p-1.5 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground cursor-pointer"
-            title="Text Highlight Color"
+            title="Text Color & Highlight"
           >
             <Palette className="h-3.5 w-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-36 bg-popover border-border p-1.5">
-          <p className="text-[10px] font-semibold text-muted-foreground px-2 py-1 uppercase">Highlight</p>
+        <DropdownMenuContent align="start" className="w-44 bg-popover border-border p-1.5 max-h-72 overflow-y-auto">
+          <p className="text-[10px] font-bold text-muted-foreground px-2 py-0.5 uppercase tracking-wider">Highlight Background</p>
           {HIGHLIGHT_COLORS.map((c) => (
             <DropdownMenuItem
               key={c.name}
@@ -274,6 +351,19 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
               <span>{c.name}</span>
             </DropdownMenuItem>
           ))}
+          <DropdownMenuSeparator />
+          <p className="text-[10px] font-bold text-muted-foreground px-2 py-0.5 uppercase tracking-wider">Text Color</p>
+          {TEXT_COLORS.map((c) => (
+            <DropdownMenuItem
+              key={c.name}
+              onClick={() => onFormatText('foreColor', c.color)}
+              className="flex items-center gap-2 text-xs cursor-pointer"
+            >
+              <div className="w-3.5 h-3.5 rounded-full border border-black/20" style={{ backgroundColor: c.color || 'currentColor' }} />
+              <span>{c.name}</span>
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onFormatText('removeFormat')} className="text-xs text-muted-foreground cursor-pointer">
             Clear Formatting
           </DropdownMenuItem>

@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScratchCommentsDrawer } from './ScratchCommentsDrawer';
 import { ScratchShareDialog } from './ScratchShareDialog';
+import { ScratchLeftToolbar } from './ScratchLeftToolbar';
 import { useNotifications } from '@/components/NotificationProvider';
 import { useAuth } from '@/context/AuthContext';
 import {
@@ -34,6 +35,13 @@ import {
   Check,
   MessageSquare,
   FolderOutput,
+  ChevronRight,
+  FileUp,
+  CheckSquare,
+  Table as TableIcon,
+  Code,
+  Quote,
+  Minus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -104,15 +112,18 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   }, [comments]);
 
   // Sync state from server on page change or initial load
+  const loadedPageIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (page) {
+    if (page && loadedPageIdRef.current !== pageId) {
+      loadedPageIdRef.current = pageId;
       setTitle(page.title || '');
       setIcon(page.icon || '📄');
       setCover(page.cover || '');
       setIsFavorite(!!page.isFavorite);
       setVisibility(page.visibility || 'private');
     }
-  }, [page]);
+  }, [page, pageId]);
 
   const isInitializedRef = useRef(false);
 
@@ -442,6 +453,16 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     }
   };
 
+  const handleInsertFromLeftToolbar = useCallback(
+    (type: BlockType) => {
+      const targetId = focusedBlockId || (blocks.length > 0 ? blocks[blocks.length - 1]._id : undefined);
+      if (targetId) {
+        handleCreateBlockBelow(targetId, type);
+      }
+    },
+    [focusedBlockId, blocks, handleCreateBlockBelow]
+  );
+
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background">
@@ -531,6 +552,9 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
 
       {/* Main Container + Side Comments Drawer */}
       <div className="flex-1 flex overflow-hidden relative">
+        {/* Canva / Draw.io Style Fixed Left Toolbar */}
+        <ScratchLeftToolbar onInsertBlock={handleInsertFromLeftToolbar} />
+
         <div className="flex-1 overflow-y-auto flex flex-col">
           {/* Cover Image / Gradient */}
           {cover && (
