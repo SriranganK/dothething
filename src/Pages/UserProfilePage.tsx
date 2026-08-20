@@ -108,7 +108,7 @@ function ActivityCell({ count, date, selected, onClick }: { count: number; date:
     <div
       title={`${date}: ${count} contribution${count !== 1 ? 's' : ''}`}
       onClick={onClick}
-      className={`w-3.5 h-3.5 rounded-[3px] border transition-all hover:scale-125 hover:z-10 cursor-pointer ${intensity} ${selected ? 'ring-2 ring-indigo-600 dark:ring-indigo-400 scale-110 z-10' : ''
+      className={`w-3 h-3 sm:w-3.5 sm:h-3.5 rounded-[2.5px] border transition-all hover:scale-125 hover:z-10 cursor-pointer ${intensity} ${selected ? 'ring-2 ring-indigo-600 dark:ring-indigo-400 scale-110 z-10' : ''
         }`}
     />
   );
@@ -551,23 +551,23 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
   }
 
   return (
-    <div className="flex-1 overflow-y-auto bg-muted/50 dark:bg-zinc-950/80 transition-colors">
-      <div className="max-w-6xl mx-auto px-4 py-8 lg:py-12 space-y-8">
+    <div className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/50 dark:bg-zinc-950/80 transition-colors w-full max-w-full">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-8 lg:py-10 space-y-6 sm:space-y-8 w-full max-w-full overflow-x-hidden">
 
         {/* Navigation & Title bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             {onBack && (
               <button
                 onClick={onBack}
-                className="flex items-center justify-center w-9 h-9 rounded-xl border border-border dark:border-border hover:bg-card text-card-foreground dark:hover:bg-zinc-900 text-muted-foreground dark:text-muted-foreground transition-all cursor-pointer shadow-xs"
+                className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-border dark:border-border hover:bg-card text-card-foreground dark:hover:bg-zinc-900 text-muted-foreground dark:text-muted-foreground transition-all cursor-pointer shadow-xs shrink-0"
               >
-                <ArrowLeft className="h-4.5 w-4.5" />
+                <ArrowLeft className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
               </button>
             )}
-            <div>
-              <h1 className="text-xl font-bold tracking-tight text-foreground dark:text-zinc-100">Account Profile</h1>
-              <p className="text-xs text-zinc-500 dark:text-muted-foreground">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-foreground dark:text-zinc-100 truncate">Account Profile</h1>
+              <p className="text-[11px] sm:text-xs text-zinc-500 dark:text-muted-foreground truncate">
                 {isOwnProfile
                   ? "Manage user credentials, notifications preferences, and collaborations dashboard"
                   : "View member profile, contact details, activity timeline, and accomplishments"
@@ -576,22 +576,24 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <Button
               variant="outline"
               onClick={copyShareLink}
-              className="h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-border dark:border-border hover:bg-background dark:hover:bg-zinc-900"
+              title="Share Profile"
+              className="h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer border-border dark:border-border hover:bg-background dark:hover:bg-zinc-900"
             >
               <Share2 className="h-3.5 w-3.5" />
-              Share
+              <span className="hidden sm:inline">Share</span>
             </Button>
             {isOwnProfile && (
               <Button
                 onClick={() => setIsEditingInfo(!isEditingInfo)}
-                className="h-9 px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs"
+                title="Edit Profile"
+                className="h-8 sm:h-9 px-2.5 sm:px-4 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white cursor-pointer shadow-xs"
               >
                 <Edit3 className="h-3.5 w-3.5" />
-                Edit Profile
+                <span className="hidden sm:inline">Edit Profile</span>
               </Button>
             )}
           </div>
@@ -599,32 +601,32 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
 
         {/* ── Glassmorphic Banner and Profile Hero ── */}
         <div className="relative border border-border dark:border-border bg-card text-card-foreground dark:bg-zinc-900 rounded-3xl overflow-hidden shadow-xs transition-all duration-300">
-          <div className={`h-40 bg-gradient-to-r ${avatarGradient} relative overflow-hidden`}>
+          <div className={`h-28 sm:h-36 md:h-40 bg-gradient-to-r ${avatarGradient} relative overflow-hidden`}>
             {/* Overlay grid lines / noise pattern */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/35 backdrop-blur-[1px]" />
-            <div className="absolute top-4 right-4 flex items-center gap-2">
-              <Badge className="bg-black/30 text-white border-none font-bold text-[10px] uppercase tracking-wider backdrop-blur-md">
+            <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center gap-2">
+              <Badge className="bg-black/30 text-white border-none font-bold text-[9px] sm:text-[10px] uppercase tracking-wider backdrop-blur-md">
                 Enterprise
               </Badge>
             </div>
           </div>
 
-          <div className="px-8 pb-8 pt-0 flex flex-col md:flex-row md:items-end md:justify-between gap-6 relative">
+          <div className="px-4 sm:px-6 md:px-8 pb-6 sm:pb-8 pt-0 flex flex-col md:flex-row md:items-end md:justify-between gap-4 sm:gap-6 relative">
             {/* Avatar block */}
-            <div className="flex flex-col md:flex-row items-start md:items-end gap-5 -mt-14">
-              <div className="relative group">
-                <div className={`w-28 h-28 rounded-2xl bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white text-4xl font-extrabold shadow-lg border-4 border-white dark:border-zinc-900 transition-transform duration-300 group-hover:scale-102`}>
+            <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 sm:gap-5 -mt-10 sm:-mt-14">
+              <div className="relative group shrink-0">
+                <div className={`w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-2xl bg-gradient-to-br ${avatarGradient} flex items-center justify-center text-white text-2xl sm:text-3xl md:text-4xl font-extrabold shadow-lg border-4 border-white dark:border-zinc-900 transition-transform duration-300 group-hover:scale-102`}>
                   {initials}
                 </div>
                 {/* Status Dot overlay */}
-                <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-xl bg-card text-card-foreground dark:bg-zinc-900 flex items-center justify-center shadow-md border border-border dark:border-border">
-                  <div className={`w-3.5 h-3.5 rounded-full ${statusMeta.color}`} />
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 sm:w-7 sm:h-7 rounded-xl bg-card text-card-foreground dark:bg-zinc-900 flex items-center justify-center shadow-md border border-border dark:border-border">
+                  <div className={`w-3 sm:w-3.5 h-3 sm:h-3.5 rounded-full ${statusMeta.color}`} />
                 </div>
               </div>
 
-              <div className="space-y-1.5 pb-2">
+              <div className="space-y-1.5 pb-1 min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-2xl font-black text-foreground dark:text-zinc-100 leading-none">{displayName || 'Jane Doe'}</h2>
+                  <h2 className="text-xl sm:text-2xl font-black text-foreground dark:text-zinc-100 leading-none truncate max-w-full">{displayName || 'Jane Doe'}</h2>
                   <div className="relative">
                     {isOwnProfile ? (
                       <button
@@ -663,17 +665,17 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                   </div>
                 </div>
 
-                <p className="text-sm font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
-                  <Briefcase className="h-4 w-4 text-muted-foreground" />
-                  {displayDesignation}
+                <p className="text-xs sm:text-sm font-semibold text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 flex-wrap">
+                  <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{displayDesignation || 'Member'}</span>
                   <span className="text-muted-foreground dark:text-foreground/90">•</span>
-                  <Building2 className="h-4 w-4 text-muted-foreground" />
-                  {displayCompany}
+                  <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <span className="truncate">{displayCompany || 'Organization'}</span>
                 </p>
               </div>
             </div>
 
-            <div className="text-left md:text-right pb-2 text-xs text-zinc-400 dark:text-muted-foreground font-semibold space-y-1">
+            <div className="text-left md:text-right pb-1 text-xs text-zinc-400 dark:text-muted-foreground font-semibold space-y-1 shrink-0">
               <div className="flex items-center md:justify-end gap-1.5">
                 <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                 Joined {displayUser?.createdAt ? new Date(displayUser.createdAt).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }) : 'June 2026'}
@@ -684,15 +686,15 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
         </div>
 
         {/* ── Inner Tabs Sidebar + Main Content Grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6 lg:gap-8 items-start min-w-0">
 
           {/* Inner Sidebar tabs */}
-          <aside className="space-y-1 bg-card text-card-foreground dark:bg-zinc-900 border border-border dark:border-border rounded-2xl p-2.5 shadow-2xs">
+          <aside className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-1 gap-1.5 bg-card text-card-foreground dark:bg-zinc-900 border border-border dark:border-border rounded-2xl p-2 shadow-2xs">
             {[
               { id: 'overview', label: 'Overview', icon: User, desc: 'Profile and analytics' },
               { id: 'activity', label: 'Recent Activity', icon: Activity, desc: isOwnProfile ? 'Your updates feed' : 'Member updates feed' },
-              isOwnProfile && { id: 'security', label: 'Security & Sign-In', icon: Lock, desc: 'Credential configuration' },
-              isOwnProfile && { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Alert channels preferences' },
+              isOwnProfile && { id: 'security', label: 'Security & Sign-In', icon: Lock, desc: 'Credential config' },
+              isOwnProfile && { id: 'notifications', label: 'Notifications', icon: Bell, desc: 'Alert preferences' },
             ].filter((t): t is { id: 'overview' | 'activity' | 'security' | 'notifications'; label: string; icon: any; desc: string } => !!t).map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -700,17 +702,17 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-left transition-all duration-200 group cursor-pointer ${isActive
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group cursor-pointer ${isActive
                       ? 'bg-primary/10 dark:bg-indigo-950/40 text-primary dark:text-indigo-400 shadow-3xs'
                       : 'text-muted-foreground dark:text-muted-foreground hover:bg-background dark:hover:bg-zinc-800/40 hover:text-foreground dark:hover:text-zinc-200'
                     }`}
                 >
-                  <Icon className={`h-4.5 w-4.5 shrink-0 transition-transform group-hover:scale-105 ${isActive ? 'text-primary dark:text-indigo-400' : 'text-muted-foreground group-hover:text-muted-foreground'}`} />
-                  <div>
-                    <p className="text-xs font-bold leading-none">{tab.label}</p>
-                    <p className="text-[9px] font-medium text-muted-foreground dark:text-muted-foreground mt-1 leading-none">{tab.desc}</p>
+                  <Icon className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${isActive ? 'text-primary dark:text-indigo-400' : 'text-muted-foreground group-hover:text-muted-foreground'}`} />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold leading-none truncate">{tab.label}</p>
+                    <p className="text-[9px] font-medium text-muted-foreground dark:text-muted-foreground mt-1 leading-none truncate hidden lg:block">{tab.desc}</p>
                   </div>
-                  {isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto text-indigo-500/70" />}
+                  {isActive && <ChevronRight className="h-3.5 w-3.5 ml-auto text-indigo-500/70 hidden lg:block shrink-0" />}
                 </button>
               );
             })}
@@ -888,7 +890,7 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
               <div className="space-y-6">
 
                 {/* Analytics / Stats Row */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { label: 'Completed Tasks', value: totalContributions > 0 ? Math.round(totalContributions * 0.45) : 18, icon: ListTodo, color: 'text-primary dark:text-indigo-400', bg: 'bg-primary/10 dark:bg-indigo-950/30' },
                     { label: 'Total Contributions', value: totalContributions, icon: GitCommit, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
@@ -897,13 +899,13 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                   ].map((stat, i) => {
                     const StatIcon = stat.icon;
                     return (
-                      <div key={i} className="bg-card text-card-foreground dark:bg-zinc-900 border border-border dark:border-border rounded-2xl p-4.5 flex items-center justify-between shadow-2xs hover:shadow-xs transition-shadow">
-                        <div className="space-y-1.5">
-                          <p className="text-[10px] font-bold text-zinc-400 dark:text-muted-foreground uppercase tracking-wider">{stat.label}</p>
-                          <p className="text-xl font-black text-foreground dark:text-zinc-100 leading-none">{stat.value}</p>
+                      <div key={i} className="bg-card text-card-foreground dark:bg-zinc-900 border border-border dark:border-border rounded-xl p-3 sm:p-3.5 flex items-center justify-between shadow-2xs hover:shadow-xs transition-shadow">
+                        <div className="space-y-1 min-w-0 pr-1">
+                          <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 dark:text-muted-foreground uppercase tracking-wider truncate">{stat.label}</p>
+                          <p className="text-base sm:text-lg font-black text-foreground dark:text-zinc-100 leading-none truncate">{stat.value}</p>
                         </div>
-                        <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center`}>
-                          <StatIcon className={`h-5 w-5 ${stat.color}`} />
+                        <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-lg ${stat.bg} flex items-center justify-center shrink-0`}>
+                          <StatIcon className={`h-4 w-4 sm:h-4.5 sm:w-4.5 ${stat.color}`} />
                         </div>
                       </div>
                     );
@@ -912,12 +914,12 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
 
                 {/* Profile Overview Details Cards */}
                 <Card className="border border-border dark:border-border bg-card text-card-foreground dark:bg-zinc-900 rounded-2xl shadow-2xs">
-                  <CardHeader className="border-b border-border dark:border-border pb-4">
+                  <CardHeader className="border-b border-border dark:border-border p-4 sm:p-5">
                     <CardTitle className="text-sm font-black text-foreground dark:text-zinc-200">Contact & Organization</CardTitle>
                     <CardDescription className="text-xs">Key metrics and personal directories</CardDescription>
                   </CardHeader>
-                  <CardContent className="py-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                       {[
                         { label: 'Email Address', value: displayEmail, icon: Mail },
                         { label: 'Phone Number', value: displayPhone, icon: Phone },
@@ -928,13 +930,13 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                       ].map((item, i) => {
                         const ItemIcon = item.icon;
                         return (
-                          <div key={i} className="flex gap-3.5 items-start">
-                            <div className="w-9 h-9 rounded-xl bg-background dark:bg-zinc-800/80 border border-border/40 dark:border-zinc-700/20 flex items-center justify-center shrink-0">
-                              <ItemIcon className="h-4 w-4 text-zinc-400 dark:text-zinc-400" />
+                          <div key={i} className="flex gap-3 items-center p-2.5 rounded-xl bg-background/50 dark:bg-zinc-800/30 border border-border/40 dark:border-zinc-800/40 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-background dark:bg-zinc-800 border border-border/40 dark:border-zinc-700/20 flex items-center justify-center shrink-0">
+                              <ItemIcon className="h-3.5 w-3.5 text-muted-foreground" />
                             </div>
-                            <div className="min-w-0">
-                              <p className="text-[10px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider leading-none">{item.label}</p>
-                              <p className="text-xs font-semibold text-zinc-700 dark:text-muted-foreground mt-1.5 truncate leading-tight">{item.value || 'Not Configured'}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[9px] font-bold text-muted-foreground dark:text-muted-foreground uppercase tracking-wider leading-none">{item.label}</p>
+                              <p className="text-xs font-semibold text-foreground/90 dark:text-zinc-200 mt-1 truncate leading-tight">{item.value || 'Not Configured'}</p>
                             </div>
                           </div>
                         );
@@ -944,18 +946,18 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                 </Card>
 
                 {/* Heatmap Contribution Section */}
-                <Card className="border border-border dark:border-border bg-card text-card-foreground dark:bg-zinc-900 rounded-2xl shadow-2xs">
-                  <CardHeader className="border-b border-border dark:border-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <Card className="border border-border dark:border-border bg-card text-card-foreground dark:bg-zinc-900 rounded-2xl shadow-2xs overflow-hidden">
+                  <CardHeader className="border-b border-border dark:border-border p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
                       <CardTitle className="text-sm font-black text-foreground dark:text-zinc-200 flex items-center gap-2">
-                        <Activity className="h-4.5 w-4.5 text-indigo-500" />
+                        <Activity className="h-4 w-4 text-indigo-500" />
                         Contributions Log
                       </CardTitle>
                       <CardDescription className="text-xs">
                         {isOwnProfile ? "Your actions across all active boards for the past 12 months" : "Actions across all active boards for the past 12 months"}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground shrink-0">
                       <span>Less</span>
                       {['bg-muted dark:bg-zinc-800', 'bg-primary/15 dark:bg-indigo-950/40', 'bg-indigo-300 dark:bg-indigo-800/80', 'bg-primary', 'bg-indigo-700'].map((c, i) => (
                         <div key={i} className={`w-2.5 h-2.5 rounded-[2px] ${c}`} />
@@ -963,38 +965,38 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                       <span>More</span>
                     </div>
                   </CardHeader>
-                  <CardContent className="py-6">
-                    <div className="overflow-x-auto pb-3">
+                  <CardContent className="p-4 sm:p-5">
+                    <div className="overflow-x-auto max-w-full pb-3">
                       <div className="min-w-max">
                         {/* Month labels */}
-                        <div className="flex ml-8 mb-2 gap-[3px]">
+                        <div className="flex ml-6 sm:ml-8 mb-1.5 gap-[2px] sm:gap-[3px]">
                           {heatmapWeeks.map((_, colIdx) => {
                             const label = monthLabels.find((m) => m.col === colIdx);
                             return (
-                              <div key={colIdx} className="w-3.5 text-[8px] text-muted-foreground dark:text-muted-foreground font-bold text-center leading-none">
+                              <div key={colIdx} className="w-3 sm:w-3.5 text-[8px] text-muted-foreground font-bold text-center leading-none">
                                 {label ? label.month : ''}
                               </div>
                             );
                           })}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-1.5 sm:gap-2">
                           {/* Day Labels */}
-                          <div className="flex flex-col gap-[3px] justify-start pt-0.5">
+                          <div className="flex flex-col gap-[2px] sm:gap-[3px] justify-start pt-0.5">
                             {days.map((day, i) => (
-                              <div key={i} className="h-3.5 text-[8px] text-muted-foreground dark:text-muted-foreground font-bold flex items-center leading-none">
+                              <div key={i} className="h-3 sm:h-3.5 text-[8px] text-muted-foreground font-bold flex items-center leading-none">
                                 {i % 2 === 1 ? day.slice(0, 1) : ''}
                               </div>
                             ))}
                           </div>
 
                           {/* Grid */}
-                          <div className="flex gap-[3px]">
+                          <div className="flex gap-[2px] sm:gap-[3px]">
                             {heatmapWeeks.map((wk, wi) => (
-                              <div key={wi} className="flex flex-col gap-[3px]">
+                              <div key={wi} className="flex flex-col gap-[2px] sm:gap-[3px]">
                                 {Array.from({ length: 7 }).map((_, di) => {
                                   const cell = wk[di];
-                                  if (!cell) return <div key={di} className="w-3.5 h-3.5" />;
+                                  if (!cell) return <div key={di} className="w-3 h-3 sm:w-3.5 sm:h-3.5" />;
                                   return (
                                     <ActivityCell
                                       key={di}
@@ -1013,21 +1015,21 @@ export default function UserProfilePage({ token, userId, onBack }: UserProfilePa
                     </div>
 
                     {/* Streaks information block */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 border-t border-border dark:border-border pt-5 mt-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 border-t border-border dark:border-border pt-4 mt-2 gap-3">
                       {[
                         { label: 'Yearly Contributions', value: totalContributions, icon: GitCommit, text: 'contributions total' },
-                        { label: 'Active Contribution Days', value: activeDays, icon: Calendar, text: 'days with activity' },
+                        { label: 'Active Days', value: activeDays, icon: Calendar, text: 'days with activity' },
                         { label: 'Longest Streak', value: `${longestStreak} Days`, icon: Zap, text: 'consecutive active days' },
                       ].map((card, i) => {
                         const CardIcon = card.icon;
                         return (
-                          <div key={i} className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-background dark:bg-zinc-800/60 border border-border/40 dark:border-zinc-700/20 flex items-center justify-center text-muted-foreground">
-                              <CardIcon className="h-4.5 w-4.5" />
+                          <div key={i} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-background/50 dark:bg-zinc-800/20 border border-border/40 dark:border-zinc-800/40">
+                            <div className="w-7 h-7 rounded-lg bg-background dark:bg-zinc-800 border border-border/40 dark:border-zinc-700/20 flex items-center justify-center text-muted-foreground shrink-0">
+                              <CardIcon className="h-3.5 w-3.5" />
                             </div>
-                            <div>
-                              <p className="text-xs font-black text-zinc-800 dark:text-zinc-200">{card.value}</p>
-                              <p className="text-[10px] font-semibold text-muted-foreground dark:text-muted-foreground leading-tight">{card.label}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black text-foreground dark:text-zinc-200 leading-none">{card.value}</p>
+                              <p className="text-[10px] font-semibold text-muted-foreground truncate mt-0.5">{card.label}</p>
                             </div>
                           </div>
                         );

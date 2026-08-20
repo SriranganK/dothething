@@ -1,5 +1,5 @@
 // src/Pages/WorkspaceDashboard.tsx
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { API_BASE_URL } from "@/config";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -152,6 +152,21 @@ export function WorkspaceDashboard({
     { sender: 'ai', text: "Hi! I am your AI coordinator for this workspace. Ask me to summarize dashboard analytics, milestones, task workloads, or general workspace details!" }
   ]);
   const [workspaceChat, { isLoading: isChatting }] = useWorkspaceChatMutation();
+  const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll chat container to bottom when messages change or dialog opens
+  const scrollToBottom = useCallback(() => {
+    if (chatMessagesContainerRef.current) {
+      const container = chatMessagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
+    }
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 60);
+    return () => clearTimeout(timer);
+  }, [chatHistory, isChatting, aiChatOpen, scrollToBottom]);
 
   // Label Quick Create form
   const [newLabelName, setNewLabelName] = useState("");
@@ -1524,8 +1539,8 @@ export function WorkspaceDashboard({
           </div>
 
           {/* Chat Messages */}
-          <ScrollArea className="flex-1 p-4 bg-muted/5">
-            <div className="space-y-4 pr-2">
+          <div ref={chatMessagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/5">
+            <div className="space-y-4 pr-1">
               {chatHistory.map((msg, i) => (
                 <div
                   key={i}
@@ -1555,7 +1570,7 @@ export function WorkspaceDashboard({
                 </div>
               )}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Footer Input */}
           <div className="p-3 border-t border-border bg-card flex gap-2">

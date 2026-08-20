@@ -68,11 +68,17 @@ export function GlobalSearchModal({ open, onOpenChange }: GlobalSearchModalProps
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Reset query on open
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset query and focus on open
   useEffect(() => {
     if (open) {
       setSearchQuery("");
       setDebouncedQuery("");
+      const timer = setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
     }
   }, [open]);
 
@@ -280,6 +286,7 @@ export function GlobalSearchModal({ open, onOpenChange }: GlobalSearchModalProps
         <div className="flex items-center px-4 border-b border-border dark:border-border shrink-0 h-14">
           <Search className="h-5 w-5 text-muted-foreground mr-3 shrink-0" />
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

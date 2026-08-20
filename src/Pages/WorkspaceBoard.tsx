@@ -1,5 +1,5 @@
 // src/Pages/WorkspaceBoard.tsx
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useConfirm } from "@/context/ConfirmContext";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "@/store/hooks";
@@ -381,15 +381,22 @@ function WorkspaceBoardContent({
     { sender: 'ai', text: `Hi! I am your AI assistant for board "${board.name}". Ask me about task progress, blockers, priorities, or what to build next!` }
   ]);
   const [boardChat, { isLoading: isChatting }] = useBoardChatMutation();
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatMessagesContainerRef = useRef<HTMLDivElement>(null);
   const lastTaskListRef = useRef<Array<{ _id: string; title: string; columnName: string; assignee: string; priority: string }>>([]);
 
-  // Auto-scroll chat to bottom when messages change
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+  // Auto-scroll chat container to bottom when messages change
+  const scrollToBottom = useCallback(() => {
+    if (chatMessagesContainerRef.current) {
+      const container = chatMessagesContainerRef.current;
+      container.scrollTop = container.scrollHeight;
     }
-  }, [chatHistory, isChatting]);
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+    const timer = setTimeout(scrollToBottom, 60);
+    return () => clearTimeout(timer);
+  }, [chatHistory, isChatting, aiChatOpen, scrollToBottom]);
 
   const [aiTaskMode, setAiTaskMode] = useState(false);
   const [quickAddStory, setQuickAddStory] = useState("");
@@ -1340,15 +1347,25 @@ function WorkspaceBoardContent({
 
 
         {/* Search bar - minimal */}
-        <div className="hidden md:block relative shrink-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+        <div className="relative shrink-0 flex items-center">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search tasks..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 w-36 md:w-44 focus:w-56 bg-muted hover:bg-muted/50 focus:bg-card text-card-foreground text-xs border border-transparent focus:border-border focus:outline-none rounded-xl text-foreground placeholder:text-muted-foreground transition-all font-semibold"
+            className="pl-8 pr-7 py-1.5 w-36 sm:w-44 md:w-52 focus:w-60 bg-muted hover:bg-muted/50 focus:bg-card text-card-foreground text-xs border border-transparent focus:border-border focus:outline-none rounded-xl text-foreground placeholder:text-muted-foreground transition-all font-semibold"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded-full hover:bg-muted-foreground/20 text-muted-foreground transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
 
         {/* Filters grouped into minimal dropdowns */}
@@ -1663,8 +1680,8 @@ function WorkspaceBoardContent({
             </div>
           </div>
 
-          {/* Chat Messages - using native scroll for reliability */}
-          <div className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/10">
+          {/* Chat Messages - using direct container scroll for reliability */}
+          <div ref={chatMessagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-4 bg-muted/10">
             <div className="space-y-4">
               {chatHistory.map((chat, idx) => (
                 <div
@@ -1713,7 +1730,6 @@ function WorkspaceBoardContent({
                   </div>
                 </div>
               )}
-              <div ref={chatEndRef} />
             </div>
           </div>
 
