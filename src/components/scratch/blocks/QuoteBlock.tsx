@@ -9,6 +9,7 @@ interface QuoteBlockProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onEditorReady?: (editor: any) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const QuoteBlock: React.FC<QuoteBlockProps> = ({
@@ -19,6 +20,7 @@ export const QuoteBlock: React.FC<QuoteBlockProps> = ({
   onFocus,
   onBlur,
   onEditorReady,
+  onPaste,
 }) => {
   return (
     <div className="border-l-3 border-primary/70 pl-3 my-1">
@@ -31,6 +33,7 @@ export const QuoteBlock: React.FC<QuoteBlockProps> = ({
         onFocus={onFocus}
         onBlur={onBlur}
         onEditorReady={onEditorReady}
+        onPaste={onPaste}
         className="w-full bg-transparent text-foreground italic outline-none border-none py-1 text-sm leading-relaxed min-h-[28px] cursor-text"
       />
     </div>

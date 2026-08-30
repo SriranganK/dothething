@@ -575,6 +575,7 @@ export const backendApi = createApi({
         method: 'PATCH',
         body,
       }),
+      invalidatesTags: ['ScratchPage'],
     }),
     deleteScratchPage: builder.mutation<{ message: string; deletedPageIds: string[] }, string>({
       query: (id) => ({
@@ -602,6 +603,17 @@ export const backendApi = createApi({
       }),
       invalidatesTags: ['ScratchBlock'],
     }),
+    createScratchBlocksBatch: builder.mutation<
+      { blocks: ScratchBlock[]; replacedBlock?: ScratchBlock },
+      { pageId: string; body: { blocks: Array<{ type: string; content?: string; properties?: any }>; afterBlockId?: string; replaceBlockId?: string } }
+    >({
+      query: ({ pageId, body }) => ({
+        url: `/scratch/pages/${pageId}/blocks/batch`,
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
     updateScratchBlock: builder.mutation<{ block: ScratchBlock }, { blockId: string; body: { type?: string; content?: string; properties?: any; order?: number; pageId?: string } }>({
       query: ({ blockId, body }) => ({
         url: `/scratch/blocks/${blockId}`,
@@ -613,6 +625,17 @@ export const backendApi = createApi({
       query: (blockId) => ({
         url: `/scratch/blocks/${blockId}`,
         method: 'DELETE',
+      }),
+      invalidatesTags: ['ScratchBlock'],
+    }),
+    deleteScratchBlocksBatch: builder.mutation<
+      { message: string; deletedBlockIds: string[]; fallbackBlock?: ScratchBlock },
+      { pageId: string; blockIds: string[] }
+    >({
+      query: ({ pageId, blockIds }) => ({
+        url: `/scratch/pages/${pageId}/blocks/batch-delete`,
+        method: 'POST',
+        body: { blockIds },
       }),
       invalidatesTags: ['ScratchBlock'],
     }),
@@ -811,8 +834,10 @@ export const {
   useDuplicateScratchPageMutation,
   useGetScratchBlocksQuery,
   useCreateScratchBlockMutation,
+  useCreateScratchBlocksBatchMutation,
   useUpdateScratchBlockMutation,
   useDeleteScratchBlockMutation,
+  useDeleteScratchBlocksBatchMutation,
   useReorderScratchBlocksMutation,
   useGetScratchCommentsQuery,
   useCreateScratchCommentMutation,

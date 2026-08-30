@@ -29,6 +29,7 @@ export const FileBlock: React.FC<FileBlockProps> = ({
   const mimeType = properties.mimeType || '';
   const isPdf = mimeType.includes('pdf') || originalName.toLowerCase().endsWith('.pdf');
   const isDocx = mimeType.includes('word') || originalName.toLowerCase().endsWith('.docx') || originalName.toLowerCase().endsWith('.doc');
+  const isImage = mimeType.startsWith('image/') || /\.(png|jpe?g|gif|webp|svg)$/i.test(originalName);
 
   const formatBytes = (bytes?: number) => {
     if (!bytes) return 'Unknown size';
@@ -257,6 +258,17 @@ export const FileBlock: React.FC<FileBlockProps> = ({
               </Button>
             </div>
           </div>
+
+          {/* Embedded Image Preview */}
+          {isImage && (
+            <div className="rounded-xl overflow-hidden border border-border/80 bg-muted/20 shadow-xs max-w-2xl">
+              <img
+                src={fileUrl}
+                alt={originalName}
+                className="w-full max-h-[450px] object-contain"
+              />
+            </div>
+          )}
 
           {/* Embedded PDF Viewer */}
           {isPdf && showPdfViewer && (

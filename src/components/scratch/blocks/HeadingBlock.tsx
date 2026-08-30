@@ -11,6 +11,7 @@ interface HeadingBlockProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onEditorReady?: (editor: any) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const HeadingBlock: React.FC<HeadingBlockProps> = ({
@@ -23,6 +24,7 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
   onFocus,
   onBlur,
   onEditorReady,
+  onPaste,
 }) => {
   const levelStyles = {
     1: 'text-2xl font-bold text-foreground mt-4 mb-1 tracking-tight',
@@ -46,6 +48,7 @@ export const HeadingBlock: React.FC<HeadingBlockProps> = ({
       onFocus={onFocus}
       onBlur={onBlur}
       onEditorReady={onEditorReady}
+      onPaste={onPaste}
       className={`w-full bg-transparent outline-none border-none py-0.5 leading-snug min-h-[32px] cursor-text ${levelStyles[level]}`}
     />
   );

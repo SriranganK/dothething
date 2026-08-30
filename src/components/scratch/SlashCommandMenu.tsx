@@ -15,6 +15,7 @@ import {
   ChevronRight,
   FileUp,
   Link2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import type { BlockType } from '@/types/scratch';
 
@@ -33,6 +34,7 @@ const COMMAND_ITEMS: CommandItem[] = [
   { id: 'heading3', label: 'Heading 3', description: 'Small section heading.', category: 'Basic', icon: Heading3 },
   { id: 'todo', label: 'Todo List', description: 'Track tasks with a checklist.', category: 'Basic', icon: CheckSquare },
   { id: 'toggle', label: 'Toggle List', description: 'Collapsible section to hide and show sub-content.', category: 'Basic', icon: ChevronRight },
+  { id: 'image', label: 'Image', description: 'Upload or embed an image with caption.', category: 'Media', icon: ImageIcon },
   { id: 'file', label: 'File / PDF / DOCX', description: 'Upload a PDF, DOCX or document file with preview.', category: 'Media', icon: FileUp },
   { id: 'bulletList', label: 'Bulleted List', description: 'Create a simple bulleted list.', category: 'Basic', icon: List },
   { id: 'numberedList', label: 'Numbered List', description: 'Create a list with numbering.', category: 'Basic', icon: ListOrdered },

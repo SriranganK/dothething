@@ -11,6 +11,7 @@ interface ToggleBlockProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   autoFocus?: boolean;
   onEditorReady?: (editor: any) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const ToggleBlock: React.FC<ToggleBlockProps> = ({
@@ -21,6 +22,7 @@ export const ToggleBlock: React.FC<ToggleBlockProps> = ({
   onKeyDown,
   autoFocus = false,
   onEditorReady,
+  onPaste,
 }) => {
   const isOpen = properties.isOpen ?? true;
 
@@ -57,6 +59,7 @@ export const ToggleBlock: React.FC<ToggleBlockProps> = ({
             placeholder="Toggle header..."
             autoFocus={autoFocus}
             onEditorReady={onEditorReady}
+            onPaste={onPaste}
             className="w-full bg-transparent text-foreground outline-none border-none py-1 text-sm font-semibold cursor-text"
           />
         </div>

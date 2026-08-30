@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   useGetScratchPagesQuery,
   useCreateScratchPageMutation,
@@ -9,6 +9,7 @@ import {
 import type { ScratchPage } from '@/types/scratch';
 import type { WorkspaceType } from '@/types/workspace';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/components/NotificationProvider';
 import {
   Plus,
   Search,
@@ -69,13 +70,77 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
   onCreateWorkspace,
 }) => {
   const { user } = useAuth();
+  const { socket } = useNotifications();
   const { data, isLoading } = useGetScratchPagesQuery(workspaceId, { skip: !workspaceId });
   const [createPage] = useCreateScratchPageMutation();
   const [updatePage] = useUpdateScratchPageMutation();
   const [deletePage] = useDeleteScratchPageMutation();
   const [duplicatePage] = useDuplicateScratchPageMutation();
 
-  const pages = data?.pages || [];
+  const [localPages, setLocalPages] = useState<ScratchPage[]>([]);
+  const pages = localPages;
+
+  useEffect(() => {
+    if (data?.pages) {
+      setLocalPages(data.pages);
+    }
+  }, [data?.pages]);
+
+  // Real-time synchronization of title typing, page updates, and creations
+  useEffect(() => {
+    if (!socket || !workspaceId) return;
+
+    socket.emit('workspace:join', workspaceId);
+
+    const handleRemoteTitleTyping = (msg: any) => {
+      if (msg?.pageId && msg?.title !== undefined) {
+        setLocalPages((prev) =>
+          prev.map((p) => (p._id === msg.pageId ? { ...p, title: msg.title } : p))
+        );
+      }
+    };
+
+    const handleRemotePageUpdated = (msg: any) => {
+      if (msg?.page?._id) {
+        setLocalPages((prev) => {
+          const exists = prev.some((p) => p._id === msg.page._id);
+          if (exists) {
+            return prev.map((p) => (p._id === msg.page._id ? { ...p, ...msg.page } : p));
+          }
+          return [...prev, msg.page];
+        });
+      }
+    };
+
+    const handleRemotePageCreated = (msg: any) => {
+      if (msg?.page?._id) {
+        setLocalPages((prev) => {
+          if (prev.some((p) => p._id === msg.page._id)) return prev;
+          return [...prev, msg.page];
+        });
+      }
+    };
+
+    const handleRemotePageDeleted = (msg: any) => {
+      if (msg?.pageId) {
+        const deletedSet = new Set(msg.deletedPageIds || [msg.pageId]);
+        setLocalPages((prev) => prev.filter((p) => !deletedSet.has(p._id)));
+      }
+    };
+
+    socket.on('scratch:title-typing', handleRemoteTitleTyping);
+    socket.on('scratch:page-updated', handleRemotePageUpdated);
+    socket.on('scratch:page-created', handleRemotePageCreated);
+    socket.on('scratch:page-deleted', handleRemotePageDeleted);
+
+    return () => {
+      socket.off('scratch:title-typing', handleRemoteTitleTyping);
+      socket.off('scratch:page-updated', handleRemotePageUpdated);
+      socket.off('scratch:page-created', handleRemotePageCreated);
+      socket.off('scratch:page-deleted', handleRemotePageDeleted);
+      socket.emit('workspace:leave', workspaceId);
+    };
+  }, [socket, workspaceId]);
 
   const [search, setSearch] = useState('');
   const [expandedPageIds, setExpandedPageIds] = useState<Record<string, boolean>>({});
@@ -93,7 +158,7 @@ export const ScratchPageSidebar: React.FC<ScratchPageSidebarProps> = ({
 
     const currentUserId = user?.id || (user as any)?._id;
 
-    pages.forEach((p) => {
+    localPages.forEach((p) => {
       if (p.isFavorite) favs.push(p);
 
       if (p.parentPageId) {

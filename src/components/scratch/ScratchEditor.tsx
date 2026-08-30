@@ -4,8 +4,10 @@ import {
   useGetScratchPagesQuery,
   useUpdateScratchPageMutation,
   useCreateScratchBlockMutation,
+  useCreateScratchBlocksBatchMutation,
   useUpdateScratchBlockMutation,
   useDeleteScratchBlockMutation,
+  useDeleteScratchBlocksBatchMutation,
   useReorderScratchBlocksMutation,
   useGetScratchCommentsQuery,
 } from '@/store/services/api';
@@ -19,11 +21,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ScratchCommentsDrawer } from './ScratchCommentsDrawer';
 import { ScratchShareDialog } from './ScratchShareDialog';
 import { ScratchLeftToolbar } from './ScratchLeftToolbar';
 import { useNotifications } from '@/components/NotificationProvider';
 import { useAuth } from '@/context/AuthContext';
+import { parseClipboardData, type ParsedScratchBlock } from './utils/pasteParser';
+import { API_BASE_URL } from '@/config';
 import {
   Smile,
   Image,
@@ -42,6 +52,9 @@ import {
   Code,
   Quote,
   Minus,
+  Trash2,
+  X,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -64,8 +77,10 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
 
   const [updatePage] = useUpdateScratchPageMutation();
   const [createBlock] = useCreateScratchBlockMutation();
+  const [createBlocksBatch] = useCreateScratchBlocksBatchMutation();
   const [updateBlock] = useUpdateScratchBlockMutation();
   const [deleteBlock] = useDeleteScratchBlockMutation();
+  const [deleteBlocksBatch] = useDeleteScratchBlocksBatchMutation();
   const [reorderBlocks] = useReorderScratchBlocksMutation();
 
   const page = data?.page;
@@ -82,6 +97,21 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   const [visibility, setVisibility] = useState<'private' | 'workspace' | 'shared' | 'public'>('private');
   const [blocks, setBlocks] = useState<ScratchBlock[]>([]);
   const [focusedBlockId, setFocusedBlockId] = useState<string | null>(null);
+  const [selectedBlockIds, setSelectedBlockIds] = useState<Set<string>>(new Set());
+  const [marqueeBox, setMarqueeBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const dragStateRef = useRef<{
+    isDown: boolean;
+    startX: number;
+    startY: number;
+    startBlockId: string | null;
+    isDraggingBlocks: boolean;
+  }>({
+    isDown: false,
+    startX: 0,
+    startY: 0,
+    startBlockId: null,
+    isDraggingBlocks: false,
+  });
 
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -218,11 +248,50 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         }
       };
 
+      const handleRemoteBlocksBatchCreated = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
+        if (data?.blocks && Array.isArray(data.blocks)) {
+          setBlocks((prev) => {
+            const next = [...prev];
+            if (data.replacedBlockId) {
+              const replaceIdx = next.findIndex((b) => b._id === data.replacedBlockId);
+              if (replaceIdx !== -1) {
+                next[replaceIdx] = data.blocks[0];
+                const remaining = data.blocks.slice(1);
+                next.splice(replaceIdx + 1, 0, ...remaining);
+                return next;
+              }
+            }
+            const existingIds = new Set(next.map((b) => b._id));
+            const newItems = data.blocks.filter((b: any) => !existingIds.has(b._id));
+            return [...next, ...newItems].sort((a, b) => a.order - b.order);
+          });
+        }
+      };
+
+      const handleRemoteBlocksBatchDeleted = (data: any) => {
+        const currentUserId = user?.id || (user as any)?._id;
+        if (data?.senderId && currentUserId && String(data.senderId) === String(currentUserId)) return;
+        if (data?.blockIds && Array.isArray(data.blockIds)) {
+          const deletedSet = new Set(data.blockIds);
+          setBlocks((prev) => {
+            const remaining = prev.filter((b) => !deletedSet.has(b._id));
+            if (remaining.length === 0 && data.fallbackBlock) {
+              return [data.fallbackBlock];
+            }
+            return remaining;
+          });
+        }
+      };
+
       socket.on('scratch:block-typing', handleRemoteBlockTyping);
       socket.on('scratch:title-typing', handleRemoteTitleTyping);
       socket.on('scratch:block-updated', handleRemoteBlockUpdate);
       socket.on('scratch:block-created', handleRemoteBlockCreated);
+      socket.on('scratch:blocks-batch-created', handleRemoteBlocksBatchCreated);
       socket.on('scratch:block-deleted', handleRemoteBlockDeleted);
+      socket.on('scratch:blocks-batch-deleted', handleRemoteBlocksBatchDeleted);
       socket.on('scratch:blocks-reordered', handleRemoteBlocksReordered);
       socket.on('scratch:page-updated', handleRemotePageUpdated);
 
@@ -231,7 +300,9 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         socket.off('scratch:title-typing', handleRemoteTitleTyping);
         socket.off('scratch:block-updated', handleRemoteBlockUpdate);
         socket.off('scratch:block-created', handleRemoteBlockCreated);
+        socket.off('scratch:blocks-batch-created', handleRemoteBlocksBatchCreated);
         socket.off('scratch:block-deleted', handleRemoteBlockDeleted);
+        socket.off('scratch:blocks-batch-deleted', handleRemoteBlocksBatchDeleted);
         socket.off('scratch:blocks-reordered', handleRemoteBlocksReordered);
         socket.off('scratch:page-updated', handleRemotePageUpdated);
         socket.emit('scratch:leave', pageId);
@@ -247,6 +318,7 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     if (socket && pageId && currentUserId) {
       socket.emit('scratch:title-typing', {
         pageId,
+        workspaceId,
         title: val,
         senderId: currentUserId,
       });
@@ -348,13 +420,14 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
   const handleDeleteBlock = useCallback(
     async (blockId: string) => {
       if (blocks.length <= 1) {
-        toast.info("A page must have at least one block.");
+        setBlocks((prev) => prev.map((b) => ({ ...b, content: '', type: 'paragraph' })));
+        updateBlock({ blockId, body: { content: '', type: 'paragraph' } });
         return;
       }
       setBlocks((prev) => prev.filter((b) => b._id !== blockId));
       await deleteBlock(blockId).unwrap();
     },
-    [blocks.length, deleteBlock]
+    [blocks.length, deleteBlock, updateBlock]
   );
 
   const handleCreateBlockBelow = useCallback(
@@ -463,6 +536,421 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
     [focusedBlockId, blocks, handleCreateBlockBelow]
   );
 
+  const isPastingRef = useRef(false);
+  const lastPasteTimeRef = useRef(0);
+
+  const handlePasteBlocks = useCallback(
+    async (parsedBlocks: ParsedScratchBlock[], targetBlockId?: string) => {
+      if (!parsedBlocks || parsedBlocks.length === 0 || !pageId) return;
+
+      // Prevent duplicate triggers if fired simultaneously
+      if (isPastingRef.current || Date.now() - lastPasteTimeRef.current < 500) {
+        return;
+      }
+      isPastingRef.current = true;
+      lastPasteTimeRef.current = Date.now();
+
+      const targetId = targetBlockId || focusedBlockId;
+      const targetBlock = blocks.find((b) => b._id === targetId);
+
+      const isTargetEmpty =
+        targetBlock &&
+        (!targetBlock.content ||
+          targetBlock.content === '<br>' ||
+          targetBlock.content === '<p></p>' ||
+          targetBlock.content === '<p><br></p>');
+
+      const replaceBlockId = isTargetEmpty ? targetBlock?._id : undefined;
+      const afterBlockId = !isTargetEmpty && targetBlock
+        ? targetBlock._id
+        : !targetBlock && blocks.length > 0
+        ? blocks[blocks.length - 1]._id
+        : undefined;
+
+      try {
+        const res = await createBlocksBatch({
+          pageId,
+          body: {
+            blocks: parsedBlocks,
+            afterBlockId,
+            replaceBlockId,
+          },
+        }).unwrap();
+
+        if (res.blocks && res.blocks.length > 0) {
+          setBlocks((prev) => {
+            const next = [...prev];
+            if (replaceBlockId) {
+              const targetIdx = next.findIndex((b) => b._id === replaceBlockId);
+              if (targetIdx !== -1) {
+                next.splice(targetIdx, 1, ...res.blocks);
+                return next;
+              }
+            } else if (afterBlockId) {
+              const afterIdx = next.findIndex((b) => b._id === afterBlockId);
+              if (afterIdx !== -1) {
+                next.splice(afterIdx + 1, 0, ...res.blocks);
+                return next;
+              }
+            }
+            return [...next, ...res.blocks];
+          });
+
+          setFocusedBlockId(res.blocks[0]._id);
+        }
+      } catch (err) {
+        console.error('Failed to batch create pasted blocks:', err);
+      } finally {
+        setTimeout(() => {
+          isPastingRef.current = false;
+        }, 400);
+      }
+    },
+    [blocks, focusedBlockId, pageId, createBlocksBatch]
+  );
+
+  const handleContainerPaste = async (e: React.ClipboardEvent) => {
+    if ((e as any)._handledPaste || (e.nativeEvent as any)._handledPaste) return;
+    const activeEl = document.activeElement;
+    if (
+      activeEl &&
+      (activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.getAttribute('contenteditable') === 'true')
+    ) {
+      return;
+    }
+    (e as any)._handledPaste = true;
+    (e.nativeEvent as any)._handledPaste = true;
+    const parsed = await parseClipboardData(e.clipboardData, API_BASE_URL);
+    if (parsed && parsed.length > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      handlePasteBlocks(parsed, focusedBlockId || undefined);
+    }
+  };
+
+  // Notion-style Drag / Marquee Selection across blocks
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        !target ||
+        target.closest('button') ||
+        target.closest('.fixed.bottom-8') ||
+        target.closest('[role="dialog"]') ||
+        target.closest('[role="menu"]') ||
+        target.closest('input[type="text"]')
+      ) {
+        return;
+      }
+
+      const blockEl = target.closest('[data-block-id]');
+      const blockId = blockEl?.getAttribute('data-block-id') || null;
+
+      // If user clicks on canvas outside any block without modifier keys, clear selection
+      if (!blockEl && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+        setSelectedBlockIds((prev) => (prev.size > 0 ? new Set() : prev));
+      }
+
+      dragStateRef.current = {
+        isDown: true,
+        startX: e.clientX,
+        startY: e.clientY,
+        startBlockId: blockId,
+        isDraggingBlocks: false,
+      };
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!dragStateRef.current.isDown) return;
+
+      const dx = e.clientX - dragStateRef.current.startX;
+      const dy = e.clientY - dragStateRef.current.startY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 8) return;
+
+      const elUnder = document.elementFromPoint(e.clientX, e.clientY);
+      const currentBlockEl = elUnder?.closest('[data-block-id]');
+      const currentBlockId = currentBlockEl?.getAttribute('data-block-id') || null;
+
+      const { startBlockId, startX, startY } = dragStateRef.current;
+
+      const isCrossBlock = Boolean(startBlockId && currentBlockId && startBlockId !== currentBlockId);
+      const isGutterDrag = !startBlockId && dist > 12;
+
+      if (isCrossBlock || isGutterDrag || dragStateRef.current.isDraggingBlocks) {
+        dragStateRef.current.isDraggingBlocks = true;
+
+        // Release the trapped contenteditable browser text selection
+        window.getSelection()?.removeAllRanges();
+        if (document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+
+        // Calculate and render Notion marquee selection box
+        const minX = Math.min(startX, e.clientX);
+        const minY = Math.min(startY, e.clientY);
+        const w = Math.abs(dx);
+        const h = Math.abs(dy);
+        setMarqueeBox({ x: minX, y: minY, w, h });
+
+        if (startBlockId && currentBlockId) {
+          const idx1 = blocks.findIndex((b) => b._id === startBlockId);
+          const idx2 = blocks.findIndex((b) => b._id === currentBlockId);
+          if (idx1 !== -1 && idx2 !== -1) {
+            const min = Math.min(idx1, idx2);
+            const max = Math.max(idx1, idx2);
+            const ids = new Set(blocks.slice(min, max + 1).map((b) => b._id));
+            setSelectedBlockIds(ids);
+          }
+        } else {
+          // Gutter/margin marquee rectangle intersection
+          const marqueeRect = { left: minX, top: minY, right: minX + w, bottom: minY + h };
+          const ids = new Set<string>();
+          blocks.forEach((b) => {
+            const el = document.getElementById(b._id) || document.querySelector(`[data-block-id="${b._id}"]`);
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              const intersects = !(
+                rect.right < marqueeRect.left ||
+                rect.left > marqueeRect.right ||
+                rect.bottom < marqueeRect.top ||
+                rect.top > marqueeRect.bottom
+              );
+              if (intersects) {
+                ids.add(b._id);
+              }
+            }
+          });
+          if (ids.size > 0) {
+            setSelectedBlockIds(ids);
+          }
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (dragStateRef.current.isDraggingBlocks) {
+        setMarqueeBox(null);
+      }
+      dragStateRef.current.isDown = false;
+      dragStateRef.current.isDraggingBlocks = false;
+    };
+
+    window.addEventListener('mousedown', handleMouseDown);
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [blocks]);
+
+  // Click on block drag handle / Shift+Click / Ctrl+Click
+  const handleSelectBlock = useCallback(
+    (blockId: string, e: React.MouseEvent) => {
+      if (e.shiftKey && focusedBlockId && focusedBlockId !== blockId) {
+        const idx1 = blocks.findIndex((b) => b._id === focusedBlockId);
+        const idx2 = blocks.findIndex((b) => b._id === blockId);
+        if (idx1 !== -1 && idx2 !== -1) {
+          const start = Math.min(idx1, idx2);
+          const end = Math.max(idx1, idx2);
+          const ids = new Set<string>();
+          for (let i = start; i <= end; i++) {
+            ids.add(blocks[i]._id);
+          }
+          setSelectedBlockIds(ids);
+          return;
+        }
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        setSelectedBlockIds((prev) => {
+          const next = new Set(prev);
+          if (next.has(blockId)) next.delete(blockId);
+          else next.add(blockId);
+          return next;
+        });
+        return;
+      }
+
+      setSelectedBlockIds((prev) => {
+        if (prev.has(blockId) && prev.size === 1) {
+          return new Set();
+        }
+        return new Set([blockId]);
+      });
+      setFocusedBlockId(blockId);
+    },
+    [blocks, focusedBlockId]
+  );
+
+  // Batch delete selected blocks
+  const handleDeleteSelectedBlocks = useCallback(async () => {
+    if (selectedBlockIds.size === 0) return;
+    const idsToDelete = Array.from(selectedBlockIds);
+    const count = idsToDelete.length;
+
+    // Optimistic UI update
+    setBlocks((prev) => {
+      const remaining = prev.filter((b) => !selectedBlockIds.has(b._id));
+      if (remaining.length === 0) {
+        return [
+          {
+            _id: `temp-${Date.now()}`,
+            pageId,
+            workspace: workspaceId,
+            type: 'paragraph',
+            content: '',
+            properties: {},
+            order: 0,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ];
+      }
+      return remaining;
+    });
+
+    setSelectedBlockIds(new Set());
+    window.getSelection()?.removeAllRanges();
+
+    try {
+      await deleteBlocksBatch({ pageId, blockIds: idsToDelete }).unwrap();
+    } catch (err) {
+      console.error('Failed to delete selected blocks:', err);
+    }
+  }, [selectedBlockIds, pageId, workspaceId, deleteBlocksBatch]);
+
+  // Batch duplicate selected blocks
+  const handleDuplicateSelectedBlocks = useCallback(async () => {
+    if (selectedBlockIds.size === 0) return;
+    const selected = blocks.filter((b) => selectedBlockIds.has(b._id));
+    if (selected.length === 0) return;
+
+    const lastSelected = selected[selected.length - 1];
+    const parsed = selected.map((b) => ({
+      type: b.type,
+      content: b.content,
+      properties: b.properties,
+    }));
+
+    setSelectedBlockIds(new Set());
+    await handlePasteBlocks(parsed, lastSelected._id);
+  }, [selectedBlockIds, blocks, handlePasteBlocks]);
+
+  // Batch change type of selected blocks
+  const handleBatchChangeType = useCallback(
+    async (newType: BlockType) => {
+      if (selectedBlockIds.size === 0) return;
+      const ids = Array.from(selectedBlockIds);
+
+      setBlocks((prev) =>
+        prev.map((b) => (selectedBlockIds.has(b._id) ? { ...b, type: newType } : b))
+      );
+
+      for (const id of ids) {
+        updateBlock({ blockId: id, body: { type: newType } });
+      }
+    },
+    [selectedBlockIds, updateBlock]
+  );
+
+  // Keyboard shortcut listener for Delete / Backspace / Escape / Character replace
+  // Keyboard shortcut listener for Delete / Backspace / Escape / Shift+Arrows / Character replace
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Shift + ArrowDown: expand block selection downward (Notion keyboard multi-select)
+      if (e.shiftKey && e.key === 'ArrowDown') {
+        const currentTargetId = focusedBlockId || (selectedBlockIds.size > 0 ? Array.from(selectedBlockIds)[selectedBlockIds.size - 1] : blocks[0]?._id);
+        const idx = blocks.findIndex((b) => b._id === currentTargetId);
+        if (idx !== -1 && idx < blocks.length - 1) {
+          e.preventDefault();
+          const nextBlock = blocks[idx + 1];
+          setSelectedBlockIds((prev) => {
+            const next = new Set(prev);
+            if (currentTargetId) next.add(currentTargetId);
+            next.add(nextBlock._id);
+            return next;
+          });
+          setFocusedBlockId(nextBlock._id);
+          window.getSelection()?.removeAllRanges();
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        }
+        return;
+      }
+
+      // Shift + ArrowUp: expand block selection upward (Notion keyboard multi-select)
+      if (e.shiftKey && e.key === 'ArrowUp') {
+        const currentTargetId = focusedBlockId || (selectedBlockIds.size > 0 ? Array.from(selectedBlockIds)[0] : blocks[blocks.length - 1]?._id);
+        const idx = blocks.findIndex((b) => b._id === currentTargetId);
+        if (idx > 0) {
+          e.preventDefault();
+          const prevBlock = blocks[idx - 1];
+          setSelectedBlockIds((prev) => {
+            const next = new Set(prev);
+            if (currentTargetId) next.add(currentTargetId);
+            next.add(prevBlock._id);
+            return next;
+          });
+          setFocusedBlockId(prevBlock._id);
+          window.getSelection()?.removeAllRanges();
+          if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+        }
+        return;
+      }
+
+      if (selectedBlockIds.size === 0) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedBlockIds(new Set());
+        window.getSelection()?.removeAllRanges();
+        return;
+      }
+
+      if (selectedBlockIds.size > 1 && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !e.shiftKey) {
+        setSelectedBlockIds(new Set());
+        return;
+      }
+
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const activeEl = document.activeElement;
+        const isTyping =
+          activeEl &&
+          (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+        if (!isTyping || selectedBlockIds.size > 1) {
+          e.preventDefault();
+          handleDeleteSelectedBlocks();
+        }
+        return;
+      }
+
+      // Typing a printable character over multiple selected blocks replaces them (Notion behavior)
+      if (
+        selectedBlockIds.size > 1 &&
+        e.key.length === 1 &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        const firstSelectedIdx = blocks.findIndex((b) => selectedBlockIds.has(b._id));
+        const afterId = firstSelectedIdx > 0 ? blocks[firstSelectedIdx - 1]._id : undefined;
+        handleDeleteSelectedBlocks();
+        handlePasteBlocks([{ type: 'paragraph', content: e.key }], afterId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedBlockIds, focusedBlockId, blocks, handleDeleteSelectedBlocks, handlePasteBlocks]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-background">
@@ -555,7 +1043,10 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
         {/* Canva / Draw.io Style Fixed Left Toolbar */}
         <ScratchLeftToolbar onInsertBlock={handleInsertFromLeftToolbar} />
 
-        <div className="flex-1 overflow-y-auto flex flex-col">
+        <div
+          className="flex-1 overflow-y-auto flex flex-col"
+          onPaste={handleContainerPaste}
+        >
           {/* Cover Image / Gradient */}
           {cover && (
             <div className={`w-full h-36 relative ${cover} shrink-0 group/cover`}>
@@ -645,6 +1136,9 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
                   onDuplicateBlock={handleDuplicateBlock}
                   onMoveBlock={handleMoveBlock}
                   onMoveToPage={handleOpenMoveBlockDialog}
+                  onPasteBlocks={handlePasteBlocks}
+                  isSelected={selectedBlockIds.has(block._id)}
+                  onSelectBlock={handleSelectBlock}
                   onAddComment={(blockId) => {
                     setActiveCommentBlockId(blockId);
                     setShowCommentsDrawer(true);
@@ -660,6 +1154,7 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
               {/* Bottom Click Target to Add Block */}
               <div
                 onClick={() => {
+                  setSelectedBlockIds(new Set());
                   if (blocks.length > 0) {
                     handleCreateBlockBelow(blocks[blocks.length - 1]._id);
                   }
@@ -683,6 +1178,78 @@ export const ScratchEditor: React.FC<ScratchEditorProps> = ({ pageId }) => {
           />
         )}
       </div>
+
+      {/* Notion Marquee Selection Rectangle */}
+      {marqueeBox && (
+        <div
+          className="fixed pointer-events-none z-[200] bg-primary/15 border border-primary/40 rounded-sm"
+          style={{
+            left: `${marqueeBox.x}px`,
+            top: `${marqueeBox.y}px`,
+            width: `${marqueeBox.w}px`,
+            height: `${marqueeBox.h}px`,
+          }}
+        />
+      )}
+
+      {/* Floating Multi-Block Selection Action Bar */}
+      {selectedBlockIds.size > 1 && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-2 bg-card/95 dark:bg-zinc-900/95 backdrop-blur-2xl border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl shadow-black/20 px-4 py-2 text-xs animate-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center gap-2 font-semibold text-foreground border-r border-border pr-3">
+            <span className="w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-[10px] font-bold">
+              {selectedBlockIds.size}
+            </span>
+            <span>blocks selected</span>
+          </div>
+
+          <button
+            onClick={handleDeleteSelectedBlocks}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-destructive-foreground font-medium transition-colors cursor-pointer"
+            title="Delete selected blocks (Del or Backspace)"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            <span>Delete</span>
+            <kbd className="ml-1 text-[10px] opacity-70 bg-black/10 dark:bg-white/10 px-1 py-0.5 rounded">Del</kbd>
+          </button>
+
+          <button
+            onClick={handleDuplicateSelectedBlocks}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer"
+            title="Duplicate selected blocks"
+          >
+            <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+            <span>Duplicate</span>
+          </button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer">
+                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Turn into...</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-44 bg-popover border-border">
+              <DropdownMenuItem onClick={() => handleBatchChangeType('paragraph')}>Text</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBatchChangeType('bulletList')}>Bulleted List</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBatchChangeType('numberedList')}>Numbered List</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBatchChangeType('todo')}>Todo List</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBatchChangeType('quote')}>Quote</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleBatchChangeType('code')}>Code Block</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <button
+            onClick={() => {
+              setSelectedBlockIds(new Set());
+              window.getSelection()?.removeAllRanges();
+            }}
+            className="p-1 text-muted-foreground hover:text-foreground rounded-lg transition-colors cursor-pointer ml-1"
+            title="Deselect (Esc)"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Share Page Dialog */}
       <ScratchShareDialog

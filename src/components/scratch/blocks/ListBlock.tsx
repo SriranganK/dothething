@@ -11,6 +11,7 @@ interface ListBlockProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onEditorReady?: (editor: any) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const ListBlock: React.FC<ListBlockProps> = ({
@@ -23,6 +24,7 @@ export const ListBlock: React.FC<ListBlockProps> = ({
   onFocus,
   onBlur,
   onEditorReady,
+  onPaste,
 }) => {
   return (
     <div className="flex items-start gap-2 py-0.5">
@@ -38,6 +40,7 @@ export const ListBlock: React.FC<ListBlockProps> = ({
         onFocus={onFocus}
         onBlur={onBlur}
         onEditorReady={onEditorReady}
+        onPaste={onPaste}
         className="w-full bg-transparent text-foreground outline-none border-none py-0.5 text-sm leading-relaxed min-h-[26px] cursor-text"
       />
     </div>

@@ -14,6 +14,7 @@ interface TodoBlockProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onEditorReady?: (editor: any) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const TodoBlock: React.FC<TodoBlockProps> = ({
@@ -26,6 +27,7 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
   onFocus,
   onBlur,
   onEditorReady,
+  onPaste,
 }) => {
   const isChecked = !!properties?.checked;
   const isLinkedToTask = properties?.linkedEntityType === 'task' && Boolean(properties?.linkedEntityId);
@@ -53,6 +55,7 @@ export const TodoBlock: React.FC<TodoBlockProps> = ({
           onFocus={onFocus}
           onBlur={onBlur}
           onEditorReady={onEditorReady}
+          onPaste={onPaste}
           className={`w-full bg-transparent text-foreground outline-none border-none py-0.5 text-sm leading-relaxed min-h-[26px] cursor-text ${
             isChecked ? 'line-through text-muted-foreground/70' : ''
           }`}

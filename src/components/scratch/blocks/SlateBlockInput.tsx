@@ -37,6 +37,7 @@ export interface SlateBlockInputProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onEditorReady?: (editor: ReactEditor) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLDivElement>) => void;
 }
 
 export const SlateFormat = {
@@ -243,13 +244,26 @@ const LinkElementComponent: React.FC<RenderElementProps> = ({ attributes, childr
   const editor = useSlateStatic();
   const url = (element as any).url || '#';
   const [copied, setCopied] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleMouseEnter = () => {
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 300);
+  };
 
   const handleCopy = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     navigator.clipboard.writeText(url);
     setCopied(true);
-    toast.success('Link URL copied to clipboard');
+    toast.success('Link copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -257,10 +271,17 @@ const LinkElementComponent: React.FC<RenderElementProps> = ({ attributes, childr
     e.preventDefault();
     e.stopPropagation();
     SlateFormat.unwrapLink(editor);
+    setIsOpen(false);
+    toast.success('Link removed');
   };
 
   return (
-    <span {...attributes} className="relative group/link inline-block">
+    <span
+      {...attributes}
+      className="relative inline-block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       <a
         href={url}
         target="_blank"
@@ -273,49 +294,76 @@ const LinkElementComponent: React.FC<RenderElementProps> = ({ attributes, childr
         }}
       >
         {children}
-        <ExternalLink className="h-3 w-3 inline-block opacity-60 group-hover/link:opacity-100 transition-opacity ml-0.5" />
+        <ExternalLink className="h-3 w-3 inline-block opacity-60 hover:opacity-100 transition-opacity ml-0.5" />
       </a>
 
-      {/* Hover Floating Link Preview Card */}
-      <span
-        contentEditable={false}
-        className="absolute left-0 top-full mt-1 z-[110] hidden group-hover/link:flex items-center gap-2 px-3 py-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl text-xs font-normal animate-in fade-in-50 zoom-in-95 duration-100 select-none whitespace-nowrap"
-      >
-        <Link2 className="h-3.5 w-3.5 text-primary shrink-0" />
-        <span className="font-mono text-[11px] max-w-[180px] truncate text-muted-foreground" title={url}>
-          {url}
+      {/* Floating Link Preview Card with Invisible Hover Bridge */}
+      {isOpen && (
+        <span
+          contentEditable={false}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          className="absolute left-0 top-full pt-1 z-[120] flex items-center select-none"
+        >
+          {/* Visual Card */}
+          <span className="flex items-center gap-2 px-3 py-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-2xl text-xs font-normal animate-in fade-in-50 zoom-in-95 duration-100 whitespace-nowrap">
+            <Link2 className="h-3.5 w-3.5 text-primary shrink-0" />
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-[11px] max-w-[200px] truncate text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+              title={url}
+            >
+              {url}
+            </a>
+
+            <div className="flex items-center gap-0.5 border-l border-border pl-1.5 ml-0.5">
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                className="p-1 hover:bg-muted rounded text-primary hover:text-primary transition-colors cursor-pointer"
+                title="Open link in new tab"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={handleCopy}
+                className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Copy URL"
+              >
+                {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+              </button>
+
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onClick={handleUnlink}
+                className="p-1 hover:bg-muted rounded text-destructive hover:text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
+                title="Remove link"
+              >
+                <Unlink className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </span>
         </span>
-
-        <div className="flex items-center gap-0.5 border-l border-border pl-1.5 ml-0.5">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-1 hover:bg-muted rounded text-primary hover:text-primary transition-colors cursor-pointer"
-            title="Open link in new tab"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            title="Copy URL"
-          >
-            {copied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleUnlink}
-            className="p-1 hover:bg-muted rounded text-destructive hover:text-destructive transition-colors cursor-pointer"
-            title="Remove link"
-          >
-            <Unlink className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </span>
+      )}
     </span>
   );
 };
@@ -330,6 +378,7 @@ export const SlateBlockInput: React.FC<SlateBlockInputProps> = ({
   onFocus,
   onBlur,
   onEditorReady,
+  onPaste,
 }) => {
   const editor = useMemo(() => {
     const e = withReact(createEditor());
@@ -450,6 +499,7 @@ export const SlateBlockInput: React.FC<SlateBlockInputProps> = ({
             onKeyDown(e);
           }
         }}
+        onPaste={onPaste}
       />
     </Slate>
   );

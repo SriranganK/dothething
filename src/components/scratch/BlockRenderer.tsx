@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Plus, GripVertical, Trash2, Copy, RefreshCw, MessageSquare, FolderOutput } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Plus, GripVertical, Trash2, Copy, RefreshCw, MessageSquare, FolderOutput, Image as ImageIcon } from 'lucide-react';
 import { Editor } from 'slate';
 import {
   DropdownMenu,
@@ -22,9 +22,12 @@ import { DividerBlock } from './blocks/DividerBlock';
 import { TableBlock } from './blocks/TableBlock';
 import { FileBlock } from './blocks/FileBlock';
 import { ToggleBlock } from './blocks/ToggleBlock';
+import { ImageBlock } from './blocks/ImageBlock';
 import { SlateFormat, slateNodesToHtml } from './blocks/SlateBlockInput';
 import { SlashCommandMenu } from './SlashCommandMenu';
 import { FormattingToolbar } from './FormattingToolbar';
+import { parseClipboardData, type ParsedScratchBlock } from './utils/pasteParser';
+import { API_BASE_URL } from '@/config';
 
 interface BlockRendererProps {
   block: ScratchBlock;
@@ -38,6 +41,9 @@ interface BlockRendererProps {
   onAddComment?: (blockId: string) => void;
   onMoveBlock?: (draggedId: string, targetId: string) => void;
   onMoveToPage?: (blockId: string) => void;
+  onPasteBlocks?: (parsedBlocks: ParsedScratchBlock[], targetBlockId: string) => Promise<void>;
+  isSelected?: boolean;
+  onSelectBlock?: (blockId: string, e: React.MouseEvent) => void;
   isFocused?: boolean;
   hasAnyFocusedBlock?: boolean;
   onFocus?: () => void;
@@ -57,6 +63,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   onAddComment,
   onMoveBlock,
   onMoveToPage,
+  onPasteBlocks,
+  isSelected = false,
+  onSelectBlock,
   isFocused,
   hasAnyFocusedBlock,
   onFocus,
@@ -68,11 +77,125 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [selectionPos, setSelectionPos] = useState<{ top: number; left: number } | null>(null);
 
   const blockContainerRef = useRef<HTMLDivElement>(null);
   const activeEditorRef = useRef<any>(null);
 
   const [openUpward, setOpenUpward] = useState(false);
+
+  // Floating toolbar ONLY displays on mouseup/keyup when text is actively selected OR toolbar popover is open
+  useEffect(() => {
+    let isMouseDown = false;
+
+    const onMouseDown = () => {
+      isMouseDown = true;
+    };
+
+    const updateSelection = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !blockContainerRef.current) {
+        setHasSelection(false);
+        return;
+      }
+
+      if (
+        blockContainerRef.current.contains(sel.anchorNode) &&
+        blockContainerRef.current.contains(sel.focusNode)
+      ) {
+        const text = sel.toString().trim();
+        if (text.length > 0) {
+          try {
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            const containerRect = blockContainerRef.current.getBoundingClientRect();
+
+            let top = rect.top - containerRect.top - 48;
+            if (rect.top < 70) {
+              top = rect.bottom - containerRect.top + 8;
+            }
+            let left = Math.max(0, rect.left - containerRect.left + rect.width / 2 - 140);
+
+            setSelectionPos({ top, left });
+            setHasSelection(true);
+            return;
+          } catch (e) {
+            // Ignore range errors
+          }
+        }
+      }
+
+      setHasSelection(false);
+    };
+
+    const onMouseUp = () => {
+      isMouseDown = false;
+      // Settle native selection before evaluating toolbar position
+      setTimeout(updateSelection, 20);
+    };
+
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (['Shift', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        setTimeout(updateSelection, 20);
+      }
+    };
+
+    const onSelectionChange = () => {
+      if (isMouseDown) return; // NEVER update while mouse is down / dragging!
+      const sel = window.getSelection();
+      if (!sel || sel.isCollapsed) {
+        setHasSelection(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('keyup', onKeyUp);
+    document.addEventListener('selectionchange', onSelectionChange);
+
+    return () => {
+      document.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.removeEventListener('keyup', onKeyUp);
+      document.removeEventListener('selectionchange', onSelectionChange);
+    };
+  }, []);
+
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    if (!onPasteBlocks) return;
+    if ((e as any)._handledPaste || (e.nativeEvent as any)._handledPaste) return;
+    (e as any)._handledPaste = true;
+    (e.nativeEvent as any)._handledPaste = true;
+
+    // Check synchronously if this is a structured multi-block paste (bullets, tables, checklist, images, etc.)
+    const plain = e.clipboardData.getData('text/plain') || '';
+    const html = e.clipboardData.getData('text/html') || '';
+    const files = e.clipboardData.files;
+    const hasFiles = Boolean(files && files.length > 0);
+    const isMultiLine = plain.includes('\n');
+    const isListOrTable =
+      html.includes('<table') ||
+      html.includes('<ul') ||
+      html.includes('<ol') ||
+      /^(\s*[-*+•⁃]\s+|\s*\[[ xX]\]|\s*\d+[\.\)]\s+|#+\s+|>)/m.test(plain);
+
+    if (hasFiles || isMultiLine || isListOrTable) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    try {
+      const parsed = await parseClipboardData(e.clipboardData, API_BASE_URL);
+      if (parsed && parsed.length > 0) {
+        e.preventDefault();
+        e.stopPropagation();
+        await onPasteBlocks(parsed, block._id);
+      }
+    } catch (err) {
+      console.error('Failed to parse clipboard data in block:', err);
+    }
+  };
 
   const handleTextChange = (value: string) => {
     if (value.startsWith('/')) {
@@ -225,6 +348,16 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
 
   const renderBlockContent = () => {
     switch (block.type) {
+      case 'image':
+        return (
+          <ImageBlock
+            properties={block.properties}
+            onChangeProperties={(props) => onUpdateProperties(block._id, props)}
+            onDelete={() => onDeleteBlock(block._id)}
+            onKeyDown={handleKeyDown}
+            autoFocus={isFocused}
+          />
+        );
       case 'file':
         return (
           <FileBlock
@@ -244,6 +377,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'heading1':
@@ -255,6 +389,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'heading2':
@@ -266,6 +401,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'heading3':
@@ -277,6 +413,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'todo':
@@ -289,6 +426,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'bulletList':
@@ -300,6 +438,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'numberedList':
@@ -312,6 +451,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'quote':
@@ -322,6 +462,7 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
       case 'code':
@@ -356,20 +497,29 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             onKeyDown={handleKeyDown}
             autoFocus={isFocused}
             onEditorReady={(e) => (activeEditorRef.current = e)}
+            onPaste={handlePaste}
           />
         );
     }
   };
 
-  // Show floating formatting toolbar on actively focused, hovered (only when no block is focused), or menu-open text block
-  const shouldShowHover = isHovered && !hasAnyFocusedBlock;
-  const showToolbar = (isFocused || shouldShowHover || isMenuOpen) && block.type !== 'divider' && block.type !== 'code' && block.type !== 'table';
+  // Floating toolbar ONLY displays when text is actively selected OR toolbar popover is open
+  // It NEVER appears merely because a block is focused or hovered, keeping previous lines completely visible
+  const showToolbar =
+    !isSelected &&
+    (hasSelection || isMenuOpen) &&
+    block.type !== 'divider' &&
+    block.type !== 'code' &&
+    block.type !== 'table' &&
+    block.type !== 'file' &&
+    block.type !== 'image';
 
   const hasComments = commentCount && commentCount.total > 0;
 
   return (
     <div
       id={block._id}
+      data-block-id={block._id}
       ref={blockContainerRef}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -384,7 +534,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       } ${
         isDragOver ? 'border-t-2 border-primary bg-primary/5 pt-1' : ''
       } ${
-        isActiveCommentTarget
+        isSelected
+          ? 'bg-primary/15 dark:bg-primary/25 ring-2 ring-primary/60 rounded-lg select-none'
+          : isActiveCommentTarget
           ? 'bg-primary/10 border-l-2 border-primary pl-2'
           : hasComments && commentCount.open > 0
           ? 'bg-amber-500/5 dark:bg-amber-500/10 border-l-2 border-amber-500/80 pl-2'
@@ -392,7 +544,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       }`}
     >
       {/* Left Block Controls (Plus & Drag Handle) */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover/block:opacity-100 transition-opacity pt-1 shrink-0 select-none">
+      <div className={`flex items-center gap-0.5 transition-opacity pt-1 shrink-0 select-none ${
+        isSelected ? 'opacity-100' : 'opacity-0 group-hover/block:opacity-100'
+      }`}>
         <button
           onClick={() => onCreateBlockBelow(block._id)}
           className="p-1 text-muted-foreground/70 hover:text-foreground hover:bg-muted rounded transition-colors cursor-pointer"
@@ -406,8 +560,13 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
             <button
               draggable
               onDragStart={handleDragStart}
-              className="p-1 text-muted-foreground/70 hover:text-foreground hover:bg-muted rounded transition-colors cursor-grab active:cursor-grabbing"
-              title="Drag to reorder or click for options"
+              onClick={(e) => onSelectBlock?.(block._id, e)}
+              className={`p-1 rounded transition-colors cursor-grab active:cursor-grabbing ${
+                isSelected
+                  ? 'bg-primary text-primary-foreground font-bold shadow-xs'
+                  : 'text-muted-foreground/70 hover:text-foreground hover:bg-muted'
+              }`}
+              title="Click or Shift+Click to select, drag to reorder"
             >
               <GripVertical className="h-3.5 w-3.5" />
             </button>
@@ -457,6 +616,9 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'heading3')}>Heading 3</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'todo')}>Todo List</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'toggle')}>Toggle List</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onChangeType(block._id, 'image')}>
+                  <ImageIcon className="h-3.5 w-3.5 mr-2 text-primary" /> Image
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'file')}>File / PDF</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'bulletList')}>Bulleted List</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onChangeType(block._id, 'numberedList')}>Numbered List</DropdownMenuItem>
@@ -473,7 +635,14 @@ export const BlockRenderer: React.FC<BlockRendererProps> = ({
       {/* Main Block Content & Formatting Toolbar */}
       <div className="flex-1 min-w-0 relative">
         {showToolbar && (
-          <div className="absolute -top-10 left-0 z-40 shadow-xl">
+          <div
+            className="absolute z-50 shadow-xl"
+            style={
+              selectionPos
+                ? { top: `${selectionPos.top}px`, left: `${selectionPos.left}px` }
+                : { top: '-44px', left: '0px' }
+            }
+          >
             <FormattingToolbar
               currentType={block.type}
               onChangeType={(newType) => onChangeType(block._id, newType)}

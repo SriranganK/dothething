@@ -21,6 +21,7 @@ import {
   ChevronRight,
   FileUp,
   Minus,
+  Image as ImageIcon,
 } from 'lucide-react';
 import type { BlockType } from '@/types/scratch';
 import {
@@ -179,6 +180,9 @@ export const FormattingToolbar: React.FC<FormattingToolbarProps> = ({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeType('file')}>
             <FileUp className="h-3.5 w-3.5 mr-2 text-blue-500" /> File / PDF
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onChangeType('image')}>
+            <ImageIcon className="h-3.5 w-3.5 mr-2 text-primary" /> Image
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => onChangeType('todo')}>
             <CheckSquare className="h-3.5 w-3.5 mr-2" /> Todo List
