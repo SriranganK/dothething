@@ -104,13 +104,13 @@ function parseTSV(text: string): { headers: string[]; rows: string[][] } | null 
  * Parses HTML table elements
  */
 function parseHtmlTable(tableEl: HTMLTableElement): { headers: string[]; rows: string[][] } {
-  const trs = Array.from(tableEl.querySelectorAll('tr'));
+  const trs = Array.from(tableEl.querySelectorAll<HTMLTableRowElement>('tr'));
   if (trs.length === 0) {
     return { headers: ['Col 1', 'Col 2'], rows: [['', '']] };
   }
 
   // Look for thead or first row
-  const theadTr = tableEl.querySelector('thead tr') || trs[0];
+  const theadTr = tableEl.querySelector<HTMLTableRowElement>('thead tr') || trs[0];
   const headerCells = theadTr ? Array.from(theadTr.querySelectorAll('th, td')) : [];
   let headers = headerCells.map((c) => (c.textContent || '').trim());
 
